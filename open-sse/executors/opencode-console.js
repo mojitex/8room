@@ -1,20 +1,28 @@
 import { DefaultExecutor } from "./default.js";
-import { FORMATS } from "../translator/formats.js";
 
-// OpenCode Console has an authenticated /inference/v1 API. Keep this executor
-// separate from OpenCode Free, whose public-tier fingerprint and auth are different.
+// OpenCode Console uses an authenticated API with separate endpoint families.
+// OpenCode Free uses a different public-tier executor and must remain untouched.
 export class OpenCodeConsoleExecutor extends DefaultExecutor {
-  constructor() {
-    super("opencode-console");
+  constructor(provider = "opencode-console") {
+    super(provider);
   }
 
-  buildUrl(model, stream, urlIndex = 0, credentials = null) {
+  buildUrl(model, stream = true) {
     const base = String(this.config.baseUrl || "https://opencode.ai/inference").replace(/\/$/, "");
     const clean = String(model || "").replace(/\([^()]+\)\s*$/, "").trim();
-    if (/^(gpt-|grok-|muse[-_]?spark)/i.test(clean)) return `${base}/v1/responses`;
-    if (/^claude-/i.test(clean) || /^qwen3\.[5678]-(flash|plus)/i.test(clean)) return `${base}/v1/messages`;
-    if (/^gemini-/i.test(clean)) return `${base}/v1/chat/completions`;
-    return `${base}/v1/chat/completions`;
+
+    // Follow the endpoint family documented by OpenCode Console.
+    if (/^(gpt-|grok-|muse[-_]?spark)/i.test(clean)) {
+      return base + "/openai/v1/responses";
+    }
+    if (/^claude-/i.test(clean) || /^qwen/i.test(clean)) {
+      return base + "/anthropic/v1/messages";
+    }
+    if (/^gemini-/i.test(clean)) {
+      const action = stream ? "streamGenerateContent?alt=sse" : "generateContent";
+      return base + "/google/v1beta/models/" + encodeURIComponent(clean) + ":" + action;
+    }
+    return base + "/openai/v1/chat/completions";
   }
 
   buildHeaders(credentials, stream = true, url, model, body = null) {

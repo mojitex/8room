@@ -80,7 +80,7 @@ async function readApiResponse(response) {
     const html = /<!doctype html|<html/i.test(text);
     const detail = html
       ? "The server returned an HTML page instead of JSON. Check the API route, reverse proxy, and authentication redirect."
-      : text.replace(/\\s+/g, " ").trim().slice(0, 240);
+      : text.replace(/\s+/g, " ").trim().slice(0, 240);
     const error = new Error(`Invalid API response (HTTP ${response.status}; ${contentType}): ${detail}`);
     error.status = response.status;
     throw error;

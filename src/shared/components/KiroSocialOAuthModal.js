@@ -10,7 +10,7 @@ async function readJsonResponse(response) {
     if (/<!doctype html|<html/i.test(text)) {
       throw new Error(`Server returned HTML instead of JSON (HTTP ${response.status}; ${contentType}). Check the API route or reverse-proxy configuration.`);
     }
-    throw new Error(`Invalid server response (HTTP ${response.status}; ${contentType}): ${text.replace(/\\s+/g, " ").trim().slice(0, 180)}`);
+    throw new Error(`Invalid server response (HTTP ${response.status}; ${contentType}): ${text.replace(/\s+/g, " ").trim().slice(0, 180)}`);
   }
 }
 
