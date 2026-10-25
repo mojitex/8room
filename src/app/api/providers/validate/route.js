@@ -193,7 +193,12 @@ export async function POST(request) {
       }
 
       if (provider === "opencode-console" || provider === "opencode-go") {
-        const res = await fetch("https://opencode.ai/inference/v1/models", {
+        const isGo = provider === "opencode-go";
+        const providerLabel = isGo ? "OpenCode Go" : "OpenCode Console";
+        const modelCatalogUrl = isGo
+          ? "https://opencode.ai/zen/go/v1/models"
+          : "https://opencode.ai/inference/v1/models";
+        const res = await fetch(modelCatalogUrl, {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             Accept: "application/json",
@@ -201,21 +206,21 @@ export async function POST(request) {
           signal: AbortSignal.timeout(10000),
         });
         if (res.status === 401 || res.status === 403) {
-          return NextResponse.json({ valid: false, error: "OpenCode API key was rejected. Check the key and Console/Go access." });
+          return NextResponse.json({ valid: false, error: `${providerLabel} API key was rejected. Check the key and subscription access.` });
         }
         if (!res.ok) {
           const text = await res.text().catch(() => "");
           const detail = /<!doctype html|<html/i.test(text)
             ? "The upstream returned HTML instead of JSON."
             : text.replace(/\s+/g, " ").trim().slice(0, 180);
-          return NextResponse.json({ valid: false, error: `OpenCode Console returned HTTP ${res.status}.${detail ? ` ${detail}` : ""}` });
+          return NextResponse.json({ valid: false, error: `${providerLabel} returned HTTP ${res.status}.${detail ? ` ${detail}` : ""}` });
         }
         const text = await res.text();
         try {
           const payload = JSON.parse(text);
           isValid = Array.isArray(payload?.data) || Array.isArray(payload?.models);
         } catch {
-          error = "OpenCode Console returned a non-JSON model catalog.";
+          error = `${providerLabel} returned a non-JSON model catalog.`;
           isValid = false;
         }
         return NextResponse.json({ valid: isValid, error: isValid ? null : (error || "OpenCode model catalog response was invalid.") });
