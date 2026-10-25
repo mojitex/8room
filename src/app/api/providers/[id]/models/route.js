@@ -53,10 +53,8 @@ const createOpenAIModelsConfig = (url, extraHeaders = {}) => ({
 
 const PROVIDER_MODELS_CONFIG = {
   opencode: {
-    ...createOpenAIModelsConfig("https://opencode.ai/zen/v1/models", {
-      "x-opencode-client": "desktop",
-      "User-Agent": "opencode/1.18.31",
-    }),
+    // OpenCode v2 exposes the public model catalog at /inference/v1/models.
+    ...createOpenAIModelsConfig("https://opencode.ai/inference/v1/models"),
     publicTier: true,
   },
   nvidia: createOpenAIModelsConfig("https://integrate.api.nvidia.com/v1/models"),
