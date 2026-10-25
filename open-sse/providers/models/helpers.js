@@ -57,8 +57,7 @@ const OPENCODE_FAMILIES = [
   { match: /^(grok|gpt|muse[-_]?spark)/i, supportedFormats: [FORMATS.OPENAI_RESPONSES], targetFormat: FORMATS.OPENAI_RESPONSES },
   { match: /^deepseek-v4(?:\.1)?-(pro|flash)/i, supportedFormats: [FORMATS.OPENAI, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES] },
   { match: /^(minimax|qwen|space-bunny)/i, supportedFormats: [FORMATS.OPENAI, FORMATS.CLAUDE] },
-  { match: /^claude-/i, supportedFormats: [FORMATS.CLAUDE], targetFormat: FORMATS.CLAUDE },
-  { match: /^gemini-/i, supportedFormats: [FORMATS.GEMINI], targetFormat: FORMATS.GEMINI },
+  { match: /^claude-/i, supportedFormats: [FORMATS.CLAUDE] },
   { match: /^(kimi|glm|deepseek|nemotron|longcat)/i, supportedFormats: [FORMATS.OPENAI], targetFormat: FORMATS.OPENAI },
 ];
 
