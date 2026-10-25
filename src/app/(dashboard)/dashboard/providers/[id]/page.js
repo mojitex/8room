@@ -313,10 +313,25 @@ export default function ProviderDetailPage() {
         fetch("/api/proxy-pools?isActive=true", { cache: "no-store" }),
         fetch("/api/settings", { cache: "no-store" }),
       ]);
-      const connectionsData = await connectionsRes.json();
-      const nodesData = await nodesRes.json();
-      const proxyPoolsData = await proxyPoolsRes.json();
-      const settingsData = settingsRes.ok ? await settingsRes.json() : {};
+      const parseApiJson = async (response, endpoint) => {
+        const body = await response.text();
+        try {
+          return body ? JSON.parse(body) : {};
+        } catch {
+          const contentType = response.headers.get("content-type") || "unknown content type";
+          const html = /<!doctype html|<html/i.test(body);
+          throw new Error(
+            `${endpoint} returned ${html ? "HTML" : "non-JSON"} instead of JSON (HTTP ${response.status}; ${contentType}).`
+          );
+        }
+      };
+
+      const [connectionsData, nodesData, proxyPoolsData, settingsData] = await Promise.all([
+        parseApiJson(connectionsRes, "/api/providers"),
+        parseApiJson(nodesRes, "/api/provider-nodes"),
+        parseApiJson(proxyPoolsRes, "/api/proxy-pools"),
+        settingsRes.ok ? parseApiJson(settingsRes, "/api/settings") : Promise.resolve({}),
+      ]);
       if (connectionsRes.ok) {
         const filtered = (connectionsData.connections || []).filter(c => c.provider === providerId);
         setConnections(filtered);
@@ -352,8 +367,13 @@ export default function ProviderDetailPage() {
 
         setProviderNode(node);
       }
+
+      return true;
     } catch (error) {
       console.log("Error fetching connections:", error);
+
+      setAddConnectionError(error?.message || "Failed to refresh provider data");
+      return false;
     } finally {
       setLoading(false);
     }
@@ -851,15 +871,39 @@ export default function ProviderDetailPage() {
         body: JSON.stringify({ provider: providerId, ...formData }),
       });
 
+      const responseText = await res.text();
       let data = null;
+
       try {
-        data = await res.json();
+        data = responseText ? JSON.parse(responseText) : null;
       } catch {
-        data = null;
+        const contentType = res.headers.get("content-type") || "unknown content type";
+        const htmlResponse = /<!doctype html|<html/i.test(responseText);
+
+        setAddConnectionError(
+          `The server returned ${htmlResponse ? "HTML" : "non-JSON"} instead of JSON when saving this profile (HTTP ${res.status}; ${contentType}).`
+        );
+        return;
+      }
+
+      if (res.ok && (!data || typeof data !== "object")) {
+        const contentType = res.headers.get("content-type") || "unknown content type";
+        setAddConnectionError(
+          `The profile save response was not a JSON object (HTTP ${res.status}; ${contentType}).`
+        );
+        return;
       }
 
       if (res.ok) {
-        await fetchConnections();
+        const refreshed = await fetchConnections();
+
+        if (!refreshed) {
+          setAddConnectionError(
+            "The profile may already have been saved, but the provider list could not be refreshed. Reload the page before trying to create it again."
+          );
+          return;
+        }
+
         setShowAddApiKeyModal(false);
         return;
       }

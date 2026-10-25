@@ -13,6 +13,9 @@ const cache = new Map(); // key: fetcher.url → { data, expiresAt }
 export async function fetchSuggestedModels(fetcher) {
   if (!fetcher?.url || !fetcher?.type) return [];
 
+  // OpenCode Free uses the bundled registry in the dashboard; avoid live probes.
+  if (fetcher.type === "opencode-free") return [];
+
   const cached = cache.get(fetcher.url);
   if (cached && Date.now() < cached.expiresAt) return cached.data;
 

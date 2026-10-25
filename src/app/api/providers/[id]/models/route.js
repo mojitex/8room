@@ -21,10 +21,31 @@ const normalizeModelList = (models) =>
 const getStaticProviderModels = (providerId) =>
   normalizeModelList(getModelsByProviderId(providerId));
 
+const describeUpstreamBody = (bodyText) => {
+  if (!bodyText) return "No upstream error details were provided.";
+
+  try {
+    const payload = JSON.parse(bodyText);
+    const message = payload?.error?.message || payload?.message || payload?.error;
+
+    if (typeof message === "string" && message.trim()) {
+      return message.trim().slice(0, 180);
+    }
+
+    if (message) return JSON.stringify(message).slice(0, 180);
+  } catch {}
+
+  if (/<!doctype html|<html/i.test(bodyText)) {
+    return "Upstream returned HTML instead of JSON; a proxy or gateway may have intercepted the request.";
+  }
+
+  return String(bodyText).replace(/\s+/g, " ").trim().slice(0, 180);
+};
+
 const createOpenAIModelsConfig = (url, extraHeaders = {}) => ({
   url,
   method: "GET",
-  headers: { "Content-Type": "application/json", ...extraHeaders },
+  headers: { "Content-Type": "application/json", Accept: "application/json", ...extraHeaders },
   authHeader: "Authorization",
   authPrefix: "Bearer ",
   parseResponse: parseOpenAIStyleModels,
@@ -124,6 +145,15 @@ export async function GET(request, { params }) {
       });
     }
 
+    if (connection.provider === "opencode") {
+      return NextResponse.json({
+        provider: connection.provider,
+        connectionId: connection.id,
+        models: getStaticProviderModels("opencode"),
+        warning: "Using bundled OpenCode Free models; the dashboard does not probe the live catalog.",
+      });
+    }
+
     const config = PROVIDER_MODELS_CONFIG[connection.provider];
     if (!config) {
       const staticModels = getStaticProviderModels(connection.provider);
@@ -165,14 +195,38 @@ export async function GET(request, { params }) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.log(`Error fetching models from ${connection.provider}:`, errorText);
+      const upstreamDetail = describeUpstreamBody(errorText);
+
+      console.log(
+        `Error fetching models from ${connection.provider} (HTTP ${response.status}):`,
+        upstreamDetail
+      );
+
       return NextResponse.json(
-        { error: `Failed to fetch models: ${response.status}` },
+        {
+          error: `${connection.provider} model catalog request failed (HTTP ${response.status}): ${upstreamDetail}`,
+        },
         { status: response.status }
       );
     }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    let data;
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      const contentType = response.headers.get("content-type") || "unknown content type";
+      const upstreamDetail = describeUpstreamBody(responseText);
+
+      return NextResponse.json(
+        {
+          error: `${connection.provider} returned non-JSON instead of a model catalog (HTTP ${response.status}; ${contentType}): ${upstreamDetail}`,
+        },
+        { status: 502 }
+      );
+    }
+
     const models = config.parseResponse(data);
 
     return NextResponse.json({

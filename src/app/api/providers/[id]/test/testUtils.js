@@ -4,7 +4,7 @@ import { testProxyUrl } from "@/lib/network/proxyTest";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 import { PROVIDERS } from "open-sse/config/providers.js";
 
-const OPENCODE_MODELS_URL = "https://opencode.ai/zen/v1/models";
+
 
 async function fetchWithConnectionProxy(url, options = {}, effectiveProxy = null) {
   if (!options.signal) {
@@ -43,6 +43,59 @@ function resolveValidateUrl(provider) {
 }
 
 async function testApiKeyConnection(connection, effectiveProxy = null) {
+  if (connection.provider === "nvidia") {
+    if (!connection.apiKey) {
+      return { valid: false, error: "NVIDIA NIM API key is required" };
+    }
+
+    try {
+      const res = await fetchWithConnectionProxy(
+        "https://integrate.api.nvidia.com/v1/models",
+        {
+          headers: {
+            Authorization: `Bearer ${connection.apiKey}`,
+            Accept: "application/json",
+          },
+        },
+        effectiveProxy
+      );
+
+      if (res.ok) return { valid: true, error: null };
+
+      const bodyText = await res.text().catch(() => "");
+      let detail = "";
+
+      try {
+        const payload = bodyText ? JSON.parse(bodyText) : null;
+        const message = payload?.error?.message || payload?.message || payload?.error;
+        detail = typeof message === "string"
+          ? message
+          : message
+            ? JSON.stringify(message)
+            : "";
+      } catch {}
+
+      if (!detail && bodyText) {
+        detail = /<!doctype html|<html/i.test(bodyText)
+          ? "An upstream proxy or gateway returned HTML instead of JSON."
+          : bodyText.replace(/\s+/g, " ").slice(0, 180);
+      }
+
+      const reason = res.status === 401 || res.status === 403
+        ? "Check the API key and account access."
+        : res.status === 429
+          ? "The API rate limit or quota may have been reached."
+          : "Check NVIDIA NIM availability and the configured proxy.";
+
+      return {
+        valid: false,
+        error: `NVIDIA NIM returned HTTP ${res.status}. ${reason}${detail ? ` Details: ${detail}` : ""}`,
+      };
+    } catch (error) {
+      return { valid: false, error: `NVIDIA NIM request failed: ${error.message}` };
+    }
+  }
+
   if (isOpenAICompatibleProvider(connection.provider)) {
     const modelsBase = connection.providerSpecificData?.baseUrl;
     if (!modelsBase) return { valid: false, error: "Missing base URL" };
@@ -92,22 +145,11 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
   }
 
   if (connection.provider === "opencode") {
-    try {
-      const res = await fetchWithConnectionProxy(
-        OPENCODE_MODELS_URL,
-        {
-          headers: {
-            Authorization: "Bearer public",
-            "User-Agent": "opencode/1.18.31",
-            "x-opencode-client": "desktop",
-          },
-        },
-        effectiveProxy
-      );
-      return { valid: res.ok, error: res.ok ? null : "OpenCode free tier unavailable" };
-    } catch (err) {
-      return { valid: false, error: err.message };
-    }
+    return {
+      valid: false,
+      skipped: true,
+      error: "OpenCode Free live probes are disabled in the dashboard. Use the bundled model list and verify actual requests only if permitted by the provider.",
+    };
   }
 
   const validateUrl = resolveValidateUrl(connection.provider);
@@ -128,6 +170,16 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
 export async function testSingleConnection(id) {
   const connection = await getProviderConnectionById(id);
   if (!connection) return { valid: false, error: "Connection not found", latencyMs: 0, testedAt: new Date().toISOString() };
+
+  if (connection.provider === "opencode") {
+    return {
+      valid: false,
+      skipped: true,
+      error: "OpenCode Free dashboard probing is disabled to avoid upstream 403/429 restrictions. This skipped test does not mean profile creation failed.",
+      latencyMs: 0,
+      testedAt: new Date().toISOString(),
+    };
+  }
 
   const effectiveProxy = await resolveConnectionProxyConfig(connection.providerSpecificData || {});
 
