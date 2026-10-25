@@ -22,10 +22,8 @@ export default {
     validateUrl: "https://opencode.ai/inference/v1/models",
     timeoutMs: 90000,
   },
-  // Curated fallback list; the dashboard can fetch the live catalog using the API key.
-  // Free-tier model IDs are intentionally excluded: OpenCode rejects their use by external clients.
-  // The connection-specific models API supplies the live catalog.
-  // Keep no bundled list so a stale first entry cannot become an implicit default.
+  // The connection-specific models API supplies the authenticated live catalog.
+  // Keep this empty so the provider cannot silently select an outdated bundled model.
   models: [],
   passthroughModels: true,
 };
