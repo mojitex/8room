@@ -15,9 +15,19 @@ export function getProviderModels(aliasOrId) {
   return PROVIDER_MODELS[aliasOrId] || [];
 }
 
+// These providers use live model catalogs and must not silently select the first
+// registry entry as a user's default model.
+const NO_DEFAULT_MODEL_PROVIDERS = new Set([
+  "opencode", "oc",
+  "opencode-console", "ocapi",
+  "opencode-go", "ocgo", "ocg",
+  "nvidia",
+]);
+
 export function getDefaultModel(aliasOrId) {
+  if (NO_DEFAULT_MODEL_PROVIDERS.has(aliasOrId)) return null;
   const models = PROVIDER_MODELS[aliasOrId];
-  return models?.[0]?.id || null;
+  return models?.find((model) => model.default === true)?.id || models?.[0]?.id || null;
 }
 
 // Providers whose registry uses dots in version numbers (e.g. "claude-sonnet-4.5").
