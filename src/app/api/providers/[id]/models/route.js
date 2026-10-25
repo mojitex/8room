@@ -60,6 +60,7 @@ const PROVIDER_MODELS_CONFIG = {
     publicTier: true,
   },
   nvidia: createOpenAIModelsConfig("https://integrate.api.nvidia.com/v1/models"),
+  "opencode-console": createOpenAIModelsConfig("https://opencode.ai/inference/v1/models"),
 };
 
 export async function GET(request, { params }) {
