@@ -53,7 +53,18 @@ export function isOpencodeFreeTierModel(modelId) {
 // /responses (gpt/grok/muse-spark), /messages (minimax/qwen), /chat/completions (rest).
 // Curated registry entries always win; this is the unknown-id fallback only.
 const OPENCODE_FAMILIES = [
-  { match: /^(grok|gpt-|muse[-_]?spark)/i, supportedFormats: [FORMATS.OPENAI_RESPONSES], targetFormat: FORMATS.OPENAI_RESPONSES },
+  // OpenCode Free and Go use source-format-matched transports when a model exposes them.
+  { match: /^(grok|gpt|muse[-_]?spark)/i, supportedFormats: [FORMATS.OPENAI_RESPONSES], targetFormat: FORMATS.OPENAI_RESPONSES },
+  { match: /^deepseek-v4(?:\.1)?-(pro|flash)/i, supportedFormats: [FORMATS.OPENAI, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES] },
+  { match: /^(minimax|qwen|space-bunny)/i, supportedFormats: [FORMATS.OPENAI, FORMATS.CLAUDE] },
+  { match: /^claude-/i, supportedFormats: [FORMATS.CLAUDE] },
+  { match: /^(kimi|glm|deepseek|nemotron|longcat)/i, supportedFormats: [FORMATS.OPENAI], targetFormat: FORMATS.OPENAI },
+];
+
+// Console endpoint families differ from OpenCode Free/Go: choose one official API
+// family based on the model ID, while Free/Go may honor the client's source format.
+const OPENCODE_CONSOLE_FAMILIES = [
+  { match: /^(grok|gpt|muse[-_]?spark)/i, supportedFormats: [FORMATS.OPENAI_RESPONSES], targetFormat: FORMATS.OPENAI_RESPONSES },
   { match: /^claude-/i, supportedFormats: [FORMATS.CLAUDE], targetFormat: FORMATS.CLAUDE },
   { match: /^qwen/i, supportedFormats: [FORMATS.CLAUDE], targetFormat: FORMATS.CLAUDE },
   { match: /^gemini-/i, supportedFormats: [FORMATS.GEMINI], targetFormat: FORMATS.GEMINI },
@@ -61,8 +72,10 @@ const OPENCODE_FAMILIES = [
   { match: /^(kimi|glm|minimax|deepseek|nemotron|longcat)/i, supportedFormats: [FORMATS.OPENAI], targetFormat: FORMATS.OPENAI },
 ];
 
-export function opencodeFamilyFormats(modelId) {
+export function opencodeFamilyFormats(modelId, aliasOrId = "") {
   if (!modelId || typeof modelId !== "string") return null;
   const base = modelId.replace(/\([^()]+\)\s*$/, "").trim();
-  return OPENCODE_FAMILIES.find((f) => f.match.test(base)) || null;
+  const isConsole = ["ocapi", "opencode-console"].includes(aliasOrId);
+  const families = isConsole ? OPENCODE_CONSOLE_FAMILIES : OPENCODE_FAMILIES;
+  return families.find((f) => f.match.test(base)) || null;
 }

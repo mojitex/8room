@@ -11,13 +11,34 @@ const isOpenCodeAlias = (aliasOrId) => !aliasOrId || ["oc", "opencode", "ocg", "
 
 
 // Helper functions
-export function getProviderModels(aliasOrId) {
-  return PROVIDER_MODELS[aliasOrId] || [];
+// Registry model maps are keyed by public alias (e.g. "ocgo"), while executors
+// and validation routes often use the provider id (e.g. "opencode-go").
+function getModelsForProvider(aliasOrId) {
+  // Accept the older upstream Go alias while 8room keeps its public "ocgo" alias.
+  const compatibilityAlias = aliasOrId === "ocg" ? "ocgo" : aliasOrId;
+  const direct = PROVIDER_MODELS[compatibilityAlias];
+  if (direct !== undefined) return direct;
+  const entry = REGISTRY.find((candidate) => candidate.id === aliasOrId);
+  return PROVIDER_MODELS[entry?.alias || compatibilityAlias] || [];
 }
 
+export function getProviderModels(aliasOrId) {
+  return getModelsForProvider(aliasOrId);
+}
+
+// These providers use live model catalogs and must not silently select the first
+// registry entry as a user's default model.
+const NO_DEFAULT_MODEL_PROVIDERS = new Set([
+  "opencode", "oc",
+  "opencode-console", "ocapi",
+  "opencode-go", "ocgo", "ocg",
+  "nvidia",
+]);
+
 export function getDefaultModel(aliasOrId) {
-  const models = PROVIDER_MODELS[aliasOrId];
-  return models?.[0]?.id || null;
+  if (NO_DEFAULT_MODEL_PROVIDERS.has(aliasOrId)) return null;
+  const models = getModelsForProvider(aliasOrId);
+  return models?.find((model) => model.default === true)?.id || models?.[0]?.id || null;
 }
 
 // Providers whose registry uses dots in version numbers (e.g. "claude-sonnet-4.5").
@@ -42,13 +63,13 @@ function findModel(models, modelId, aliasOrId) {
 
 export function isValidModel(aliasOrId, modelId, passthroughProviders = new Set()) {
   if (passthroughProviders.has(aliasOrId)) return true;
-  const models = PROVIDER_MODELS[aliasOrId];
+  const models = getModelsForProvider(aliasOrId);
   if (!models) return false;
   return !!findModel(models, modelId, aliasOrId);
 }
 
 export function findModelName(aliasOrId, modelId) {
-  const models = PROVIDER_MODELS[aliasOrId];
+  const models = getModelsForProvider(aliasOrId);
   if (!models) return modelId;
   const found = findModel(models, modelId, aliasOrId);
   return found?.name || modelId;
@@ -58,12 +79,12 @@ export function getModelTargetFormat(aliasOrId, modelId) {
   if (isOpenCodeAlias(aliasOrId) && isMuseSparkModel(modelId)) {
     return FORMATS.OPENAI_RESPONSES;
   }
-  const models = PROVIDER_MODELS[aliasOrId];
+  const models = getModelsForProvider(aliasOrId);
   if (!models) return null;
   const found = findModel(models, modelId, aliasOrId);
   if (found) return modelTargetFormat(found);
   // Family fallback keeps modelsFetcher/passthrough ids on their endpoint lane
-  if (isOpenCodeAlias(aliasOrId)) return opencodeFamilyFormats(modelId)?.targetFormat || null;
+  if (isOpenCodeAlias(aliasOrId)) return opencodeFamilyFormats(modelId, aliasOrId)?.targetFormat || null;
   return null;
 }
 
@@ -72,16 +93,16 @@ export function getModelTargetFormat(aliasOrId, modelId) {
 // Unknown OpenCode ids fall back to the family regex (chat lane by default) so
 // auto-fetched models never wrongly use the sourceFormat-matched transport.
 export function getModelSupportedFormats(aliasOrId, modelId) {
-  const models = PROVIDER_MODELS[aliasOrId];
+  const models = getModelsForProvider(aliasOrId);
   if (!models) return null;
   const found = findModel(models, modelId, aliasOrId);
   if (found) return modelSupportedFormats(found);
-  if (isOpenCodeAlias(aliasOrId)) return opencodeFamilyFormats(modelId)?.supportedFormats || [FORMATS.OPENAI];
+  if (isOpenCodeAlias(aliasOrId)) return opencodeFamilyFormats(modelId, aliasOrId)?.supportedFormats || [FORMATS.OPENAI];
   return null;
 }
 
 export function getModelType(aliasOrId, modelId) {
-  const models = PROVIDER_MODELS[aliasOrId];
+  const models = getModelsForProvider(aliasOrId);
   if (!models) return null;
   const found = findModel(models, modelId, aliasOrId);
   return found?.kind || found?.type || null;
@@ -89,7 +110,7 @@ export function getModelType(aliasOrId, modelId) {
 
 // Raw registry entry for a model (suffix-aware) — executor lookups of per-model hints (e.g. defaultLocation).
 export function getModelMeta(aliasOrId, modelId) {
-  return findModel(PROVIDER_MODELS[aliasOrId], modelId, aliasOrId) || null;
+  return findModel(getModelsForProvider(aliasOrId), modelId, aliasOrId) || null;
 }
 
 export function getModelUpstreamId(aliasOrId, modelId) {
@@ -98,7 +119,7 @@ export function getModelUpstreamId(aliasOrId, modelId) {
   const sufMatch = typeof modelId === "string" ? modelId.match(/\([^()]+\)\s*$/) : null;
   const suffix = sufMatch ? sufMatch[0] : "";
   const baseId = suffix ? modelId.slice(0, sufMatch.index).trim() : modelId;
-  const models = PROVIDER_MODELS[aliasOrId];
+  const models = getModelsForProvider(aliasOrId);
   const found = findModel(models, baseId, aliasOrId);
   const resolvedId = found?.upstreamModelId || found?.id;
   if (resolvedId) {
@@ -114,7 +135,7 @@ export function getModelUpstreamId(aliasOrId, modelId) {
 }
 
 export function getModelQuotaFamily(aliasOrId, modelId) {
-  const models = PROVIDER_MODELS[aliasOrId];
+  const models = getModelsForProvider(aliasOrId);
   return modelQuotaFamily(findModel(models, modelId, aliasOrId));
 }
 

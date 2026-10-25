@@ -30,7 +30,7 @@ function hasValidOpencodeVersion(ua) {
   const m = String(ua || "").match(/^opencode\/[a-z0-9-]+\/(\d+)\.\d+\.\d+\/[a-z0-9-]+$/i);
   return !!m && parseInt(m[1], 10) >= 2;
 }
-// OpenCode v2 routes free-tier models through the same API-family paths documented for Console.
+// Models served by /inference/v1/responses; every other model stays on /chat/completions.
 const RESPONSES_MODELS = new Set([
   "muse-spark-1.2-contributor-free",
   "muse-spark-1.3-contributor-free",
@@ -319,6 +319,16 @@ function normalizeOpencodeReasoning(model, body) {
   delete body.reasoning_effort;
 }
 
+// Chat Completions lane: the free backend validates reasoning_effort against the
+// plain OpenAI enum (none|minimal|low|medium|high|xhigh|max) and answers 400
+// "Invalid option" for anything else — including "auto", which adaptive thinking
+// (Claude Code's thinking:{type:"adaptive"}) arrives as. Omitting the field lets
+// the upstream pick its own default, which is what adaptive means; same rationale
+// as the Responses path above, which rejects "unknown variant `auto`".
+function dropAdaptiveReasoningEffort(body) {
+  if (body?.reasoning_effort === "auto") delete body.reasoning_effort;
+}
+
 export class OpenCodeExecutor extends BaseExecutor {
   constructor() {
     super("opencode", PROVIDERS.opencode);
@@ -368,6 +378,7 @@ export class OpenCodeExecutor extends BaseExecutor {
       // non-empty tool arrays; skipping cloaking here triggers 403 FreeTierError.
       applyFingerprintTools(body, true);
     } else if (body && typeof body === "object") {
+      dropAdaptiveReasoningEffort(body);
       applyFingerprintTools(body, false);
     }
     return injectReasoningContent({ provider: this.provider, model, body });
@@ -377,13 +388,13 @@ export class OpenCodeExecutor extends BaseExecutor {
     return super.execute({ ...args, credentials: this.prepareRequestCredentials(args) });
   }
 
-  // OpenCode v2 uses distinct API-family prefixes under /inference.
-  // Keep these paths aligned with the published OpenCode API endpoints.
+  // Free tier moved from /zen/v1 to /inference/v1 (OpenCode v2); /zen/v1 now
+  // answers every free request with 403 FreeTierError.
   buildUrl(model) {
-    const base = String(this.config.baseUrl || "https://opencode.ai").replace(/\/$/, "");
-    if (isResponsesModel(model)) return `${base}/inference/openai/v1/responses`;
-    if (isMessagesModel(model)) return `${base}/inference/anthropic/v1/messages`;
-    return `${base}/inference/openai/v1/chat/completions`;
+    const base = this.config.baseUrl;
+    if (isResponsesModel(model)) return `${base}/inference/v1/responses`;
+    if (isMessagesModel(model)) return `${base}/inference/v1/messages`;
+    return `${base}/inference/v1/chat/completions`;
   }
 
   buildHeaders(credentials, stream = true, url = "") {
