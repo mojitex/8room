@@ -1,5 +1,19 @@
 "use client";
 
+async function readJsonResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    const contentType = response.headers.get("content-type") || "unknown content type";
+    if (/<!doctype html|<html/i.test(text)) {
+      throw new Error(`Server returned HTML instead of JSON (HTTP ${response.status}; ${contentType}). Check the API route or reverse-proxy configuration.`);
+    }
+    throw new Error(`Invalid server response (HTTP ${response.status}; ${contentType}): ${text.replace(/\\s+/g, " ").trim().slice(0, 180)}`);
+  }
+}
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import PropTypes from "prop-types";
 import { Modal, Button, Input } from "@/shared/components";
@@ -101,7 +115,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         }),
       });
 
-      const data = await res.json();
+      const data = await readJsonResponse(res);
       if (!res.ok) throw new Error(data.error);
 
       setStep("success");
@@ -120,7 +134,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code, state: authData.state }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse(res);
       if (!res.ok) throw new Error(data.error);
 
       setStep("success");
@@ -165,7 +179,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
           body: JSON.stringify({ deviceCode, codeVerifier, extraData }),
         });
 
-        const data = await res.json();
+        const data = await readJsonResponse(res);
 
         if (data.success) {
           pollingAbortRef.current = true; // Stop polling immediately
@@ -310,7 +324,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
           deviceCodeUrl.searchParams.set("auth_method", "idc");
         }
         const res = await fetch(deviceCodeUrl.toString());
-        const data = await res.json();
+        const data = await readJsonResponse(res);
         if (!res.ok) throw new Error(data.error);
 
         setDeviceData(data);
@@ -377,7 +391,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         Object.entries(oauthMeta).forEach(([k, v]) => { if (v) authorizeUrl.searchParams.set(k, v); });
       }
       const res = await fetch(authorizeUrl.toString());
-      const data = await res.json();
+      const data = await readJsonResponse(res);
       if (!res.ok) throw new Error(data.error);
 
       // Codex: start proxy with server-side session (auto-exchange) + fallback to channels
@@ -544,7 +558,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
       attempts += 1;
       try {
           const res = await fetch(`/api/oauth/${pollProvider}/poll-status?state=${encodeURIComponent(authData.state)}`);
-        const data = await res.json();
+        const data = await readJsonResponse(res);
         if (cancelled || callbackProcessedRef.current) return;
         if (data.status === "done") {
           callbackProcessedRef.current = true;
@@ -668,7 +682,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: token }),
         });
-        const data = await res.json();
+        const data = await readJsonResponse(res);
         if (!res.ok) throw new Error(data.error);
         setStep("success");
         onSuccessRef.current?.();
@@ -692,7 +706,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
             ...(authData?.systemId ? { systemId: authData.systemId } : {}),
           }),
         });
-        const data = await res.json();
+        const data = await readJsonResponse(res);
         if (!res.ok) throw new Error(data.error);
         setStep("success");
         onSuccessRef.current?.();
