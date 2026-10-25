@@ -14,10 +14,12 @@ const isOpenCodeAlias = (aliasOrId) => !aliasOrId || ["oc", "opencode", "ocg", "
 // Registry model maps are keyed by public alias (e.g. "ocgo"), while executors
 // and validation routes often use the provider id (e.g. "opencode-go").
 function getModelsForProvider(aliasOrId) {
-  const direct = PROVIDER_MODELS[aliasOrId];
+  // Accept the older upstream Go alias while 8room keeps its public "ocgo" alias.
+  const compatibilityAlias = aliasOrId === "ocg" ? "ocgo" : aliasOrId;
+  const direct = PROVIDER_MODELS[compatibilityAlias];
   if (direct !== undefined) return direct;
   const entry = REGISTRY.find((candidate) => candidate.id === aliasOrId);
-  return PROVIDER_MODELS[entry?.alias || aliasOrId] || [];
+  return PROVIDER_MODELS[entry?.alias || compatibilityAlias] || [];
 }
 
 export function getProviderModels(aliasOrId) {
