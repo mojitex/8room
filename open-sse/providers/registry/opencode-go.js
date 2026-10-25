@@ -34,8 +34,11 @@ export default {
     { format: "openai-responses", baseUrl: "https://opencode.ai/zen/go/v1/responses", auth: { combined: true, header: "Authorization", scheme: "bearer" }, thinkingFormat: "openai-responses" },
   ],
   // supportedFormats follow the endpoint table in https://opencode.ai/docs/go/
-  // Models are loaded from the live catalog; family matching supplies protocol metadata.
-  models: [],
+  // The live catalog supplies ordinary chat models. Keep only the Messages-only
+  // exception statically so OpenAI clients are translated onto the correct endpoint.
+  models: [
+    { id: "claude-haiku-5-5", name: "Claude Haiku 5.5", targetFormat: "claude", supportedFormats: ["claude"] },
+  ],
   // Live catalogue; ids outside this curated list get their endpoint lane from the
   // family regex in providers/models/helpers.js (opencodeFamilyFormats).
   modelsFetcher: { url: "https://opencode.ai/zen/go/v1/models", type: "opencode-go" },
