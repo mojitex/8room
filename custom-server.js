@@ -82,3 +82,14 @@ http.createServer = (...args) => {
 };
 
 startBackgroundTokenRefreshFromCustomServer();
+// Start the generated Next.js standalone server when launched by Docker.
+if (require.main === module) {
+  const standaloneServer = path.join(__dirname, "server.js");
+
+  if (!fs.existsSync(standaloneServer)) {
+    console.error("[custom-server] Missing standalone server.js");
+    process.exit(1);
+  }
+
+  require(standaloneServer);
+}
