@@ -53,13 +53,15 @@ const createOpenAIModelsConfig = (url, extraHeaders = {}) => ({
 
 const PROVIDER_MODELS_CONFIG = {
   opencode: {
-    // OpenCode v2 exposes the public model catalog at /inference/v1/models.
-    ...createOpenAIModelsConfig("https://opencode.ai/inference/v1/models"),
+    ...createOpenAIModelsConfig("https://opencode.ai/zen/v1/models", {
+      "x-opencode-client": "desktop",
+      "User-Agent": "opencode/1.18.31",
+    }),
     publicTier: true,
   },
   nvidia: createOpenAIModelsConfig("https://integrate.api.nvidia.com/v1/models"),
   "opencode-console": createOpenAIModelsConfig("https://opencode.ai/inference/v1/models"),
-  "opencode-go": createOpenAIModelsConfig("https://opencode.ai/inference/v1/models"),
+  "opencode-go": createOpenAIModelsConfig("https://opencode.ai/zen/go/v1/models"),
 };
 
 export async function GET(request, { params }) {
@@ -142,15 +144,6 @@ export async function GET(request, { params }) {
         provider: connection.provider,
         connectionId: connection.id,
         models,
-      });
-    }
-
-    if (connection.provider === "opencode") {
-      return NextResponse.json({
-        provider: connection.provider,
-        connectionId: connection.id,
-        models: getStaticProviderModels("opencode"),
-        warning: "Using bundled OpenCode Free models; the dashboard does not probe the live catalog.",
       });
     }
 
