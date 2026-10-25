@@ -1,10 +1,12 @@
 import { AntigravityExecutor } from "./antigravity.js";
 import { BedrockExecutor } from "./bedrock.js";
 import { OpenCodeExecutor } from "./opencode.js";
+import { OpenCodeConsoleExecutor } from "./opencode-console.js";
 import { DefaultExecutor } from "./default.js";
 
 const executors = {
   opencode: new OpenCodeExecutor(),
+  "opencode-console": new OpenCodeConsoleExecutor(),
   antigravity: new AntigravityExecutor(),
   bedrock: new BedrockExecutor(),
   br: new BedrockExecutor(),
