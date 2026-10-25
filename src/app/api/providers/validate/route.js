@@ -192,7 +192,7 @@ export async function POST(request) {
         });
       }
 
-      if (provider === "opencode-console") {
+      if (provider === "opencode-console" || provider === "opencode-go") {
         const res = await fetch("https://opencode.ai/inference/v1/models", {
           headers: {
             Authorization: `Bearer ${apiKey}`,
