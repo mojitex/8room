@@ -34,7 +34,7 @@ export default {
     { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", targetFormat: "openai", supportedFormats: ["openai"] },
     { id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", targetFormat: "claude", supportedFormats: ["claude"] },
     { id: "qwen3.8-flash", name: "Qwen 3.8 Flash", targetFormat: "claude", supportedFormats: ["claude"] },
-    { id: "qwen3.8-max", name: "Qwen 3.8 Max", targetFormat: "openai", supportedFormats: ["openai"] },
+    { id: "qwen3.8-max", name: "Qwen 3.8 Max", targetFormat: "claude", supportedFormats: ["claude"] },
     { id: "gpt-6.1-sol", name: "GPT 6.1 Sol", targetFormat: "openai-responses", supportedFormats: ["openai-responses"] },
     { id: "grok-4.5", name: "Grok 4.5", targetFormat: "openai-responses", supportedFormats: ["openai-responses"] },
     { id: "muse-spark-1.3", name: "Muse Spark 1.3", targetFormat: "openai-responses", supportedFormats: ["openai-responses"] },
