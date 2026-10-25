@@ -207,7 +207,7 @@ export async function POST(request) {
           const text = await res.text().catch(() => "");
           const detail = /<!doctype html|<html/i.test(text)
             ? "The upstream returned HTML instead of JSON."
-            : text.replace(/\\s+/g, " ").trim().slice(0, 180);
+            : text.replace(/\s+/g, " ").trim().slice(0, 180);
           return NextResponse.json({ valid: false, error: `OpenCode Console returned HTTP ${res.status}.${detail ? ` ${detail}` : ""}` });
         }
         const text = await res.text();
