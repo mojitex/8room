@@ -57,7 +57,7 @@ const OPENCODE_FAMILIES = [
   { match: /^claude-/i, supportedFormats: [FORMATS.CLAUDE], targetFormat: FORMATS.CLAUDE },
   { match: /^qwen/i, supportedFormats: [FORMATS.CLAUDE], targetFormat: FORMATS.CLAUDE },
   { match: /^gemini-/i, supportedFormats: [FORMATS.GEMINI], targetFormat: FORMATS.GEMINI },
-  { match: /^deepseek-v4(?:\\.1)?-(pro|flash)/i, supportedFormats: [FORMATS.OPENAI], targetFormat: FORMATS.OPENAI },
+  { match: /^deepseek-v4(?:\.1)?-(pro|flash)/i, supportedFormats: [FORMATS.OPENAI], targetFormat: FORMATS.OPENAI },
   { match: /^(kimi|glm|minimax|deepseek|nemotron|longcat)/i, supportedFormats: [FORMATS.OPENAI], targetFormat: FORMATS.OPENAI },
 ];
 
