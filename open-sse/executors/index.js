@@ -7,6 +7,7 @@ import { DefaultExecutor } from "./default.js";
 const executors = {
   opencode: new OpenCodeExecutor(),
   "opencode-console": new OpenCodeConsoleExecutor(),
+  "opencode-go": new OpenCodeConsoleExecutor("opencode-go"),
   antigravity: new AntigravityExecutor(),
   bedrock: new BedrockExecutor(),
   br: new BedrockExecutor(),
