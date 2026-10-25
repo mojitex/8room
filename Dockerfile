@@ -21,7 +21,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
-ENV PORT=20127
+ENV PORT=20128
 
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
@@ -29,6 +29,6 @@ COPY --from=builder --chown=node:node /app/public ./public
 
 USER node
 
-EXPOSE 20127
+EXPOSE 20128
 
 CMD ["node", "custom-server.js"]
