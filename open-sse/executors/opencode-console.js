@@ -8,21 +8,21 @@ export class OpenCodeConsoleExecutor extends DefaultExecutor {
   }
 
   buildUrl(model, stream = true) {
-    const base = String(this.config.baseUrl || "https://opencode.ai/inference").replace(/\\/$/, "");
-    const clean = String(model || "").replace(/\\([^()]+\\)\\s*$/, "").trim();
+    const base = String(this.config.baseUrl || "https://opencode.ai/inference").replace(/\/$/, "");
+    const clean = String(model || "").replace(/\([^()]+\)\s*$/, "").trim();
 
-    // These paths follow OpenCode's official Console Inference API documentation.
+    // Follow the endpoint family documented by OpenCode Console.
     if (/^(gpt-|grok-|muse[-_]?spark)/i.test(clean)) {
-      return `${base}/openai/v1/responses`;
+      return base + "/openai/v1/responses";
     }
     if (/^claude-/i.test(clean) || /^qwen/i.test(clean)) {
-      return `${base}/anthropic/v1/messages`;
+      return base + "/anthropic/v1/messages";
     }
     if (/^gemini-/i.test(clean)) {
       const action = stream ? "streamGenerateContent?alt=sse" : "generateContent";
-      return `${base}/google/v1beta/models/${encodeURIComponent(clean)}:${action}`;
+      return base + "/google/v1beta/models/" + encodeURIComponent(clean) + ":" + action;
     }
-    return `${base}/openai/v1/chat/completions`;
+    return base + "/openai/v1/chat/completions";
   }
 
   buildHeaders(credentials, stream = true, url, model, body = null) {
