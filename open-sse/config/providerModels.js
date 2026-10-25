@@ -63,7 +63,7 @@ export function getModelTargetFormat(aliasOrId, modelId) {
   const found = findModel(models, modelId, aliasOrId);
   if (found) return modelTargetFormat(found);
   // Family fallback keeps modelsFetcher/passthrough ids on their endpoint lane
-  if (isOpenCodeAlias(aliasOrId)) return opencodeFamilyFormats(modelId)?.targetFormat || null;
+  if (isOpenCodeAlias(aliasOrId)) return opencodeFamilyFormats(modelId, aliasOrId)?.targetFormat || null;
   return null;
 }
 
@@ -76,7 +76,7 @@ export function getModelSupportedFormats(aliasOrId, modelId) {
   if (!models) return null;
   const found = findModel(models, modelId, aliasOrId);
   if (found) return modelSupportedFormats(found);
-  if (isOpenCodeAlias(aliasOrId)) return opencodeFamilyFormats(modelId)?.supportedFormats || [FORMATS.OPENAI];
+  if (isOpenCodeAlias(aliasOrId)) return opencodeFamilyFormats(modelId, aliasOrId)?.supportedFormats || [FORMATS.OPENAI];
   return null;
 }
 
