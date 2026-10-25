@@ -31,6 +31,7 @@ export default {
   models: [
     { id: "minimaxai/minimax-m2.7", name: "MiniMax M2.7" },
     { id: "minimaxai/minimax-m3", name: "MiniMax M3" },
+    { id: "minimaxai/minimax-m3.1-flash", name: "MiniMax M3.1 Flash" },
     { id: "z-ai/glm-5.2", name: "GLM 5.2" },
     { id: "deepseek-ai/deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash" },
     { id: "deepseek-ai/deepseek-v4-flash", name: "DeepSeek V4.1 Flash (legacy ID alias)", upstreamModelId: "deepseek-ai/deepseek-v4.1-flash" },
@@ -43,6 +44,8 @@ export default {
     { id: "tacotron2", name: "Tacotron2", kind: "tts" },
   ],
   serviceKinds: ["llm","tts","embedding"],
+  // Accept newly released model IDs from NVIDIA's live /v1/models catalog.
+  passthroughModels: true,
   ttsConfig: {
     baseUrl: "https://integrate.api.nvidia.com/v1/audio/speech",
     authType: "apikey",
