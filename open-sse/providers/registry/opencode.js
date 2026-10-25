@@ -49,6 +49,6 @@ export default {
       "User-Agent": "opencode/1.18.31",
     },
   },
-  modelsFetcher: { url: "https://opencode.ai/zen/v1/models", type: "opencode-free" },
+  modelsFetcher: { url: "https://opencode.ai/inference/v1/models", type: "opencode-free" },
   passthroughModels: true,
 };
