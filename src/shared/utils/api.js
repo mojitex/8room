@@ -70,13 +70,30 @@ export async function del(url, options = {}) {
   return handleResponse(response);
 }
 
+async function readApiResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    const contentType = response.headers.get("content-type") || "unknown content type";
+    const html = /<!doctype html|<html/i.test(text);
+    const detail = html
+      ? "The server returned an HTML page instead of JSON. Check the API route, reverse proxy, and authentication redirect."
+      : text.replace(/\\s+/g, " ").trim().slice(0, 240);
+    const error = new Error(`Invalid API response (HTTP ${response.status}; ${contentType}): ${detail}`);
+    error.status = response.status;
+    throw error;
+  }
+}
+
 /**
  * Handle API response
  * @param {Response} response - Fetch response
  * @returns {Promise<object>}
  */
 async function handleResponse(response) {
-  const data = await response.json();
+  const data = await readApiResponse(response);
 
   if (!response.ok) {
     const error = new Error(data.error || "An error occurred");

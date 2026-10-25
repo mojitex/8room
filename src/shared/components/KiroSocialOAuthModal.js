@@ -1,5 +1,19 @@
 "use client";
 
+async function readJsonResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    const contentType = response.headers.get("content-type") || "unknown content type";
+    if (/<!doctype html|<html/i.test(text)) {
+      throw new Error(`Server returned HTML instead of JSON (HTTP ${response.status}; ${contentType}). Check the API route or reverse-proxy configuration.`);
+    }
+    throw new Error(`Invalid server response (HTTP ${response.status}; ${contentType}): ${text.replace(/\\s+/g, " ").trim().slice(0, 180)}`);
+  }
+}
+
 import { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import { Modal, Button, Input } from "@/shared/components";
@@ -33,7 +47,7 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
         setStep("loading");
 
         const res = await fetch(`/api/oauth/kiro/social-authorize?provider=${provider}`);
-        const data = await res.json();
+        const data = await readJsonResponse(res);
 
         if (!res.ok) {
           throw new Error(data.error);
@@ -93,7 +107,7 @@ export default function KiroSocialOAuthModal({ isOpen, provider, onSuccess, onCl
         }),
       });
 
-      const data = await res.json();
+      const data = await readJsonResponse(res);
       if (!res.ok) throw new Error(data.error);
 
       setStep("success");
