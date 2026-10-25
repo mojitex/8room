@@ -53,13 +53,12 @@ export function isOpencodeFreeTierModel(modelId) {
 // /responses (gpt/grok/muse-spark), /messages (minimax/qwen), /chat/completions (rest).
 // Curated registry entries always win; this is the unknown-id fallback only.
 const OPENCODE_FAMILIES = [
-  { match: /^(grok|gpt|muse[-_]?spark)/i, supportedFormats: [FORMATS.OPENAI_RESPONSES], targetFormat: FORMATS.OPENAI_RESPONSES },
+  { match: /^(grok|gpt-|muse[-_]?spark)/i, supportedFormats: [FORMATS.OPENAI_RESPONSES], targetFormat: FORMATS.OPENAI_RESPONSES },
   { match: /^claude-/i, supportedFormats: [FORMATS.CLAUDE], targetFormat: FORMATS.CLAUDE },
-  { match: /^qwen3\\.[567]-(flash|plus|max)/i, supportedFormats: [FORMATS.CLAUDE], targetFormat: FORMATS.CLAUDE },
-  { match: /^qwen3\\.8-(flash|plus)/i, supportedFormats: [FORMATS.CLAUDE], targetFormat: FORMATS.CLAUDE },
+  { match: /^qwen/i, supportedFormats: [FORMATS.CLAUDE], targetFormat: FORMATS.CLAUDE },
   { match: /^gemini-/i, supportedFormats: [FORMATS.GEMINI], targetFormat: FORMATS.GEMINI },
   { match: /^deepseek-v4(?:\\.1)?-(pro|flash)/i, supportedFormats: [FORMATS.OPENAI], targetFormat: FORMATS.OPENAI },
-  { match: /^(kimi|glm|minimax|qwen|deepseek|nemotron|longcat)/i, supportedFormats: [FORMATS.OPENAI], targetFormat: FORMATS.OPENAI },
+  { match: /^(kimi|glm|minimax|deepseek|nemotron|longcat)/i, supportedFormats: [FORMATS.OPENAI], targetFormat: FORMATS.OPENAI },
 ];
 
 export function opencodeFamilyFormats(modelId) {
