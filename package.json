@@ -24,10 +24,14 @@
     "@monaco-editor/react": "^4.7.0",
     "@next/third-parties": "^16.2.9",
     "@node-saml/node-saml": "^5.1.0",
+    "@prisma/composer": "0.28.0",
+    "@prisma/composer-prisma-cloud": "0.28.0",
     "@xyflow/react": "^12.10.1",
+    "alchemy": "2.0.0-beta.78",
     "bcryptjs": "^3.0.3",
     "chalk": "^5.6.2",
     "confbox": "^0.2.4",
+    "effect": "4.0.0-rc.115",
     "enquirer": "^2.4.1",
     "express": "^5.2.1",
     "http-proxy-middleware": "^3.0.5",
@@ -67,11 +71,21 @@
     "eslint-config-next": "16.1.6",
     "playwright-core": "^1.62.1",
     "postcss": "^8.5.6",
+    "prisma": "8.0.0-rc.21",
     "tailwindcss": "^4",
     "wreq-js": "^3.2.0"
   },
   "overrides": {
+    "@effect/platform-bun": "4.0.0-rc.115",
+    "@effect/platform-node": "4.0.0-rc.115",
+    "@effect/platform-node-shared": "4.0.0-rc.115",
+    "@effect/sql-d1": "4.0.0-rc.115",
+    "@effect/sql-mysql2": "4.0.0-rc.115",
+    "@effect/sql-pg": "4.0.0-rc.115",
+    "@effect/sql-sqlite-do": "4.0.0-rc.115",
+    "@effect/vitest": "4.0.0-rc.115",
     "dompurify": "^3.4.17",
+    "effect": "4.0.0-rc.115",
     "ip-address": "^10.7.4"
   }
 }
