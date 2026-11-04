@@ -8,8 +8,10 @@
 // JA4's cipher hash identifies the list (Bun: 5b57614c22b0), so the match is on
 // the cipher-list hash and nothing else — reordering the same list still passes.
 //
-// wreq-js is an optional dependency; when absent the caller keeps its native
-// fetch and stays subject to the gate rather than failing the request here.
+// wreq-js is a production dependency for Docker installs. lazyRuntime also
+// supports on-demand installation for non-Docker deployments. If it cannot be
+// loaded, OpenCode Free requests fail explicitly rather than silently using a
+// native TLS fingerprint that the upstream gate rejects.
 
 import { loadRuntimeDep } from "./lazyRuntime.js";
 

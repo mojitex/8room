@@ -24,14 +24,10 @@
     "@monaco-editor/react": "^4.7.0",
     "@next/third-parties": "^16.2.9",
     "@node-saml/node-saml": "^5.1.0",
-    "@prisma/composer": "0.28.0",
-    "@prisma/composer-prisma-cloud": "0.28.0",
     "@xyflow/react": "^12.10.1",
-    "alchemy": "2.0.0-beta.78",
     "bcryptjs": "^3.0.3",
     "chalk": "^5.6.2",
     "confbox": "^0.2.4",
-    "effect": "4.0.0-rc.115",
     "enquirer": "^2.4.1",
     "express": "^5.2.1",
     "http-proxy-middleware": "^3.0.5",
@@ -54,7 +50,8 @@
     "sql.js": "^1.14.1",
     "undici": "^7.30.1",
     "uuid": "^13.0.0",
-    "zustand": "^5.0.10"
+    "zustand": "^5.0.10",
+    "wreq-js": "^3.2.0"
   },
   "optionalDependencies": {
     "@aws-sdk/credential-providers": "^3.1135.0",
@@ -64,28 +61,17 @@
   },
   "comment_better_sqlite3": "kept in optionalDependencies so npm install doesn't fail on systems without build tools — sql.js is used as fallback at runtime",
   "comment_aws_sdk_credential_providers": "kept in optionalDependencies (npm still installs these by default) and imported lazily in shared/awsCredentials.js — only AWS Bedrock connections using profile/SSO mode need it; static accessKeyId/secretAccessKey connections never load it",
-  "comment_playwright_core": "devDependency only (keeps end-user installs small); open-sse/services/lazyRuntime.js downloads it + wreq-js on first use into <DATA_DIR>/runtime.",
+  "comment_playwright_core": "playwright-core remains a devDependency to keep end-user installs small; lazyRuntime.js installs it into <DATA_DIR>/runtime on first use. wreq-js is a production dependency because OpenCode Free requires its TLS-compatible transport.",
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
     "playwright-core": "^1.62.1",
     "postcss": "^8.5.6",
-    "prisma": "8.0.0-rc.21",
-    "tailwindcss": "^4",
-    "wreq-js": "^3.2.0"
+    "tailwindcss": "^4"
   },
   "overrides": {
-    "@effect/platform-bun": "4.0.0-rc.115",
-    "@effect/platform-node": "4.0.0-rc.115",
-    "@effect/platform-node-shared": "4.0.0-rc.115",
-    "@effect/sql-d1": "4.0.0-rc.115",
-    "@effect/sql-mysql2": "4.0.0-rc.115",
-    "@effect/sql-pg": "4.0.0-rc.115",
-    "@effect/sql-sqlite-do": "4.0.0-rc.115",
-    "@effect/vitest": "4.0.0-rc.115",
     "dompurify": "^3.4.17",
-    "effect": "4.0.0-rc.115",
     "ip-address": "^10.7.4"
   }
 }

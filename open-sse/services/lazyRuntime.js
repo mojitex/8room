@@ -1,9 +1,9 @@
 // Lazy loader for heavy optional runtime deps (playwright-core, wreq-js).
 //
-// They are devDependencies only, so end-user installs stay small. On first
-// use the package is downloaded into <DATA_DIR>/runtime (same pattern as
-// cli/hooks/sqliteRuntime.js) and imported from there. Resolution order:
-// app node_modules (dev / traced standalone) → runtime dir → npm install.
+// Runtime packages are resolved from the app install first. Packages not
+// shipped with a particular installation can be downloaded into <DATA_DIR>/runtime
+// on first use (same pattern as cli/hooks/sqliteRuntime.js). Resolution order:
+// app node_modules → runtime dir → npm install.
 //
 // Never throws at import time of THIS module — failures surface from
 // loadRuntimeDep() with a manual-install hint.
