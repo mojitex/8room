@@ -8,6 +8,7 @@ import { resolveSessionId } from "../utils/sessionManager.js";
 import { isMuseSparkModel } from "../providers/models/helpers.js";
 import { applyFingerprintTools } from "../utils/opencodeFingerprint.js";
 import { opencodeTlsFetch } from "../services/opencodeTlsClient.js";
+import { resolveProxyUrlForRequest } from "../utils/proxyFetch.js";
 import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
 import {
   normalizeResponsesInput,
@@ -408,15 +409,24 @@ export class OpenCodeExecutor extends BaseExecutor {
   // `directFetch` when no proxy is configured). wreq-js is required; Docker images
   // include it explicitly and other installs can use lazyRuntime's installer.
   async execute(args) {
+    if (args?.proxyOptions?.vercelRelayUrl) {
+      throw new Error(
+        "OpenCode Free requires end-to-end TLS impersonation and cannot use the Vercel relay. Configure a direct or connection/environment proxy instead."
+      );
+    }
+
     const credentials = this.prepareRequestCredentials(args);
     return super.execute({
       ...args,
       credentials,
-      directFetch: (url, options) => opencodeTlsFetch(url, {
+      directFetch: (url, options, proxyUrl) => opencodeTlsFetch(url, {
         method: options.method,
         headers: options.headers,
         body: options.body,
-      }, { signal: options.signal }),
+      }, {
+        signal: options.signal,
+        proxy: proxyUrl || resolveProxyUrlForRequest(url, args?.proxyOptions),
+      }),
     });
   }
 
