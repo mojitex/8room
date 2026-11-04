@@ -403,20 +403,29 @@ export class OpenCodeExecutor extends BaseExecutor {
   }
 
   // The free gate keys on the TLS ClientHello, so a native Node fetch is refused
-  // no matter how faithful the body is. Route through the impersonating client
-  // and keep proxy handling on the existing path (proxyAwareFetch delegates to
-  // `directFetch` when no proxy is configured). Fail-open: without wreq-js the
-  // request still goes out on native fetch instead of erroring here.
+  // no matter how faithful the body is. Route through the impersonating client.
+  // proxyAwareFetch resolves connection/environment proxies and passes the URL
+  // into directFetch so wreq-js can bind it to the TLS session. Docker images
+  // include wreq-js explicitly; other installs can use lazyRuntime's installer.
   async execute(args) {
+    if (args?.proxyOptions?.vercelRelayUrl) {
+      throw new Error(
+        "OpenCode Free requires end-to-end TLS impersonation and cannot use the Vercel relay. Configure a direct or connection/environment proxy instead."
+      );
+    }
+
     const credentials = this.prepareRequestCredentials(args);
     return super.execute({
       ...args,
       credentials,
-      directFetch: (url, options) => opencodeTlsFetch(url, {
+      directFetch: (url, options, proxyUrl) => opencodeTlsFetch(url, {
         method: options.method,
         headers: options.headers,
         body: options.body,
-      }, { signal: options.signal }),
+      }, {
+        signal: options.signal,
+        proxy: proxyUrl ?? null,
+      }),
     });
   }
 

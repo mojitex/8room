@@ -148,8 +148,8 @@ export class BaseExecutor {
           headers,
           body: bodyStr,
           signal: mergedSignal,
-          // Protocol adapters that need their own transport (opencode's TLS
-          // fingerprint) override the direct path; proxies still take priority.
+          // Protocol adapters that need their own TLS identity receive the
+          // resolved proxy URL and handle direct/proxied transport themselves.
           ...(directFetch ? { directFetch } : {}),
         }, proxyOptions);
         clearTimeout(connectTimer);

@@ -4,7 +4,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-RUN npm install --include=dev
+RUN npm ci --include=dev
 
 FROM node:24-bookworm-slim AS builder
 WORKDIR /app
@@ -24,6 +24,12 @@ ENV HOSTNAME=0.0.0.0
 ENV PORT=20128
 
 COPY --from=builder --chown=node:node /app/.next/standalone ./
+
+# OpenCode Free needs wreq-js for its TLS-compatible transport. Next standalone
+# does not reliably trace the dynamic lazyRuntime import, so copy the runtime
+# package and the current platform's optional native binding explicitly.
+COPY --from=deps /app/node_modules/wreq-js ./node_modules/wreq-js
+COPY --from=deps /app/node_modules/@wreq-js ./node_modules/@wreq-js
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 COPY --from=builder --chown=node:node /app/public ./public
 

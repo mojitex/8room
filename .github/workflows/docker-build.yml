@@ -1,12 +1,16 @@
-name: Build and publish 8room Docker image
+name: Build and Push Docker Image
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: 8room-docker-main
@@ -20,6 +24,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Synchronize npm lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+          # PR builds use the synchronized lockfile in the workspace but do not
+          # push commits back to the contributor's branch.
+          if [[ "$GITHUB_EVENT_NAME" != "pull_request" ]] && ! git diff --quiet -- package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore: synchronize package-lock.json"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -32,6 +58,65 @@ jobs:
           tags: monsmain/monsmain-root:ci-test
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Verify OpenCode TLS runtime dependency
+        shell: bash
+        run: |
+          docker run --rm monsmain/monsmain-root:ci-test \
+            node --input-type=module -e '
+              const wreq = await import("wreq-js");
+              if (typeof wreq.createSession !== "function") {
+                throw new Error("wreq-js createSession export is unavailable");
+              }
+
+              const emulation = {
+                tlsOptions: {
+                  cipherList: "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA"
+                }
+              };
+
+              const directSession = await wreq.createSession({ emulation });
+              await directSession.close?.();
+
+              // wreq-js only accepts proxies at session creation time. Use a
+              // local rejecting CONNECT proxy to assert that the session really
+              // routes HTTPS through the configured proxy without external access.
+              const { createServer } = await import("node:http");
+              const proxyServer = createServer();
+              let proxyRequestSeen = false;
+              proxyServer.on("connect", (_request, socket) => {
+                proxyRequestSeen = true;
+                socket.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
+              });
+              proxyServer.on("request", (_request, response) => {
+                proxyRequestSeen = true;
+                response.writeHead(502);
+                response.end();
+              });
+              await new Promise((resolve, reject) => {
+                proxyServer.once("error", reject);
+                proxyServer.listen(0, "127.0.0.1", resolve);
+              });
+
+              const proxyAddress = proxyServer.address();
+              const proxiedSession = await wreq.createSession({
+                emulation,
+                proxy: `http://127.0.0.1:${proxyAddress.port}`
+              });
+              try {
+                await proxiedSession.fetch("https://wreq-proxy-smoke.invalid/", { timeout: 5000 });
+              } catch {
+                // The local test proxy intentionally rejects the CONNECT tunnel.
+              }
+              await proxiedSession.close?.();
+              await new Promise((resolve) => proxyServer.close(resolve));
+
+              if (!proxyRequestSeen) {
+                throw new Error("wreq-js did not send HTTPS through the configured proxy");
+              }
+
+              console.log("OpenCode direct and proxy TLS runtime dependencies passed");
+            '
 
       - name: Test container HTTP startup
         shell: bash
@@ -70,12 +155,14 @@ jobs:
 
       - name: Check Docker Hub credentials
         id: dockerhub
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          if [[ -n "$DOCKERHUB_USERNAME" && -n "$DOCKERHUB_TOKEN" ]]; then
+          if [[ ( -n "$DOCKER_USERNAME" || -n "$DOCKERHUB_USERNAME" ) && -n "$DOCKERHUB_TOKEN" ]]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
@@ -83,21 +170,21 @@ jobs:
           fi
 
       - name: Log in to Docker Hub
-        if: steps.dockerhub.outputs.configured == 'true'
+        if: github.event_name != 'pull_request' && steps.dockerhub.outputs.configured == 'true'
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ secrets.DOCKER_USERNAME || secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Publish tested image
-        if: steps.dockerhub.outputs.configured == 'true'
+        if: github.event_name != 'pull_request' && steps.dockerhub.outputs.configured == 'true'
         shell: bash
         run: |
           set -euo pipefail
           IMAGE=monsmain/monsmain-root
 
           docker tag "$IMAGE:ci-test" "$IMAGE:latest"
-          docker tag "$IMAGE:ci-test" "$IMAGE:sha-${GITHUB_SHA::7}"
+          docker tag "$IMAGE:ci-test" "$IMAGE:sha-$GITHUB_SHA"
 
-          docker push "$IMAGE:sha-${GITHUB_SHA::7}"
+          docker push "$IMAGE:sha-$GITHUB_SHA"
           docker push "$IMAGE:latest"
