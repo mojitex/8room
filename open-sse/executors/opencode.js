@@ -403,10 +403,10 @@ export class OpenCodeExecutor extends BaseExecutor {
   }
 
   // The free gate keys on the TLS ClientHello, so a native Node fetch is refused
-  // no matter how faithful the body is. Route through the impersonating client
-  // and keep proxy handling on the existing path (proxyAwareFetch delegates to
-  // `directFetch` when no proxy is configured). wreq-js is required; Docker images
-  // include it explicitly and other installs can use lazyRuntime's installer.
+  // no matter how faithful the body is. Route through the impersonating client.
+  // proxyAwareFetch resolves connection/environment proxies and passes the URL
+  // into directFetch so wreq-js can bind it to the TLS session. Docker images
+  // include wreq-js explicitly; other installs can use lazyRuntime's installer.
   async execute(args) {
     if (args?.proxyOptions?.vercelRelayUrl) {
       throw new Error(
