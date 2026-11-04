@@ -86,7 +86,7 @@ export async function opencodeTlsFetch(url, init = {}, { signal, timeoutMs = DEF
     session = await loadSession();
   } catch (error) {
     throw new OpencodeTlsUnavailableError(
-      `wreq-js unavailable (${error instanceof Error ? error.message : "unknown"}) — install the optional wreq-js dependency to reach the OpenCode free tier`
+      `wreq-js unavailable (${error instanceof Error ? error.message : "unknown"}) — ensure the production wreq-js dependency is installed to reach the OpenCode free tier`
     );
   }
 
