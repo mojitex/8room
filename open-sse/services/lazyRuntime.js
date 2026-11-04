@@ -14,7 +14,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { getWritableDataDir } from "../utils/writableDataDir.js";
 
-// Keep in sync with package.json devDependencies.
+// Keep these versions aligned with the packages declared in package.json.
 const LAZY_DEP_VERSIONS = {
   "playwright-core": "^1.62.1",
   "wreq-js": "^3.2.0",
