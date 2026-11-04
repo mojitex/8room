@@ -69,16 +69,23 @@ jobs:
                 throw new Error("wreq-js createSession export is unavailable");
               }
 
-              const session = await wreq.createSession({
-                emulation: {
-                  tlsOptions: {
-                    cipherList: "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA"
-                  }
+              const emulation = {
+                tlsOptions: {
+                  cipherList: "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA"
                 }
-              });
+              };
 
-              await session.close?.();
-              console.log("OpenCode TLS runtime dependency passed");
+              const directSession = await wreq.createSession({ emulation });
+              await directSession.close?.();
+
+              // wreq-js only accepts proxies at session creation time.
+              const proxiedSession = await wreq.createSession({
+                emulation,
+                proxy: "http://127.0.0.1:8888"
+              });
+              await proxiedSession.close?.();
+
+              console.log("OpenCode direct and proxy TLS runtime dependencies passed");
             '
 
       - name: Test container HTTP startup
