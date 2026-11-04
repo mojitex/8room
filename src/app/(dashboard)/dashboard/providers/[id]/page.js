@@ -1348,19 +1348,66 @@ export default function ProviderDetailPage() {
             <div className="w-full mt-2">
               <p className="text-xs text-text-muted mb-2">Suggested free models (≥200k context):</p>
               <div className="flex flex-wrap gap-2">
-                {notAdded.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={async () => {
-                      await handleAddCustomModel(m.id, "llm", providerStorageAlias);
-                    }}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-xs text-text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
-                    title={`${m.name} · ${(m.contextLength / 1000).toFixed(0)}k ctx`}
-                  >
-                    <span className="material-symbols-outlined text-[13px]">add</span>
-                    {m.id.split("/").pop()}
-                  </button>
-                ))}
+                {notAdded.map((m) => {
+                  const isTesting = testingModelIds.has(m.id);
+                  const testStatus = modelTestResults[m.id];
+                  const canTest = providerId !== "opencode" && (connections.length > 0 || isFreeNoAuth);
+                  const testLabel = isTesting
+                    ? `Testing ${m.name || m.id}`
+                    : testStatus === "ok"
+                      ? `Test passed: ${m.name || m.id}`
+                      : testStatus === "error"
+                        ? `Test failed: ${m.name || m.id}`
+                        : `Test model: ${m.name || m.id}`;
+                  const statusColor = testStatus === "ok"
+                    ? "text-green-500"
+                    : testStatus === "error"
+                      ? "text-red-500"
+                      : "text-text-muted hover:text-primary";
+
+                  return (
+                    <div
+                      key={m.id}
+                      className="inline-flex items-center gap-1 rounded-lg border border-black/10 px-1.5 py-1 dark:border-white/10"
+                      title={`${m.name} · ${(m.contextLength / 1000).toFixed(0)}k ctx`}
+                    >
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await handleAddCustomModel(m.id, "llm", providerStorageAlias);
+                        }}
+                        className="flex items-center gap-1 px-1 text-xs text-text-muted transition-colors hover:text-primary"
+                        title={`Add ${m.name || m.id}`}
+                      >
+                        <span className="material-symbols-outlined text-[13px]">add</span>
+                        {m.id.split("/").pop()}
+                      </button>
+                      {canTest && (
+                        <button
+                          type="button"
+                          onClick={() => handleTestModel(m.id)}
+                          disabled={isTesting}
+                          aria-label={testLabel}
+                          title={testLabel}
+                          className={`rounded p-0.5 transition-colors disabled:cursor-wait disabled:opacity-60 ${statusColor}`}
+                        >
+                          <span
+                            className="material-symbols-outlined text-[14px]"
+                            style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}
+                          >
+                            {isTesting
+                              ? "progress_activity"
+                              : testStatus === "ok"
+                                ? "check_circle"
+                                : testStatus === "error"
+                                  ? "cancel"
+                                  : "science"}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
