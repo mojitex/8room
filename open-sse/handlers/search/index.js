@@ -195,7 +195,7 @@ export async function handleSearchCore({ body, provider, providerConfig, credent
   // 3. Failover within global timeout for retriable errors
   if (
     !NON_RETRIABLE.has(result.status || 0) &&
-    Date.now() - globalStartTime < GLOBAL_TIMEOUT_MS &&
+    Date.now() - globalStartTime < timeoutMs &&
     provider.searchViaChat &&
     providerConfig
   ) {
