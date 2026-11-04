@@ -11,7 +11,7 @@ const searchModel = (id) => PROVIDER_MEDIA[id]?.searchViaChat?.defaultModel;
 const searchEndpoint = (id, model) =>
   (PROVIDER_MEDIA[id]?.searchViaChat?.endpoint || "").replace("{model}", model || "");
 
-const REQUEST_TIMEOUT_MS = 15000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 100000;
 const DEFAULT_MAX_RESULTS = 10;
 
 /**
@@ -433,7 +433,8 @@ export async function handleChatSearch({
   maxResults,
   model,
   credentials,
-  log
+  log,
+  timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
 }) {
   const startTime = Date.now();
   const cfg = CHAT_SEARCH_CONFIG[provider];
@@ -474,7 +475,7 @@ export async function handleChatSearch({
   const headers = cfg.buildHeaders(token);
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   let upstreamStart = Date.now();
   let resp;
