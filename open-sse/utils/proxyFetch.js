@@ -242,11 +242,22 @@ export function resolveProxyUrlForRequest(targetUrl, proxyOptions = null) {
 /**
  * Create proxy dispatcher lazily (undici-compatible)
  */
-async function getDispatcher(proxyUrl, insecure = false) {
-  const normalized = normalizeProxyUrl(proxyUrl);
-  if (!normalized && !insecure) return null;
+function getTransportProfile(url) {
+  try {
+    const hostname = new URL(typeof url === "string" ? url : url.toString()).hostname.toLowerCase();
+    return hostname === "nvidia.com" || hostname.endsWith(".nvidia.com") ? "nvidia" : null;
+  } catch {
+    return null;
+  }
+}
 
-  const key = `${normalized || "direct"}::${insecure ? "insecure" : "secure"}`;
+async function getDispatcher(proxyUrl, insecure = false, profile = null) {
+  const normalized = normalizeProxyUrl(proxyUrl);
+  if (!normalized && !insecure && profile !== "nvidia") return null;
+
+  // NVIDIA receives its own warm connection pool. This improves repeat and
+  // concurrent NIM calls without changing other providers or bypassing proxies.
+  const key = `${normalized || "direct"}::${insecure ? "insecure" : "secure"}::${profile || "default"}`;
   if (!proxyDispatchers.has(key)) {
     // Evict oldest entry if max size reached
     if (proxyDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
@@ -254,9 +265,27 @@ async function getDispatcher(proxyUrl, insecure = false) {
     }
     const { Agent, ProxyAgent } = await import("undici");
     const connect = insecure ? { rejectUnauthorized: false } : undefined;
+    const nvidiaPoolOptions = profile === "nvidia"
+      ? {
+          connections: 16,
+          pipelining: 1,
+          keepAliveTimeout: 60_000,
+          keepAliveMaxTimeout: 120_000,
+          allowH2: true,
+        }
+      : {};
     const dispatcher = normalized
-      ? new ProxyAgent({ uri: normalized, ...(insecure ? { requestTls: connect } : {}) })
-      : new Agent({ connect });
+      ? new ProxyAgent({
+          uri: normalized,
+          ...nvidiaPoolOptions,
+          ...(insecure ? { requestTls: connect } : {}),
+        })
+      : new Agent({
+          ...nvidiaPoolOptions,
+          connect: profile === "nvidia"
+            ? { timeout: 10_000, keepAlive: true, ...(insecure ? connect : {}) }
+            : connect,
+        });
     proxyDispatchers.set(key, dispatcher);
   }
 
@@ -268,7 +297,10 @@ async function fetchWithTlsFallback(url, options, proxyUrl) {
     // Protocol-specific transports receive the resolved proxy and must keep
     // their own TLS identity on both direct and proxied connections.
     if (options.directFetch) return await options.directFetch(url, options, proxyUrl);
-    const dispatcher = proxyUrl ? await getDispatcher(proxyUrl) : undefined;
+    const profile = getTransportProfile(url);
+    const dispatcher = (proxyUrl || profile)
+      ? await getDispatcher(proxyUrl, false, profile)
+      : undefined;
     return await originalFetch(url, dispatcher ? { ...options, dispatcher } : options);
   } catch (err) {
     // Never silently downgrade a protocol-specific transport to native Node TLS.
@@ -280,7 +312,8 @@ async function fetchWithTlsFallback(url, options, proxyUrl) {
       }
       // ponytail: in-memory insecure agent fallback for self-signed MITM corporate/antivirus certs
       console.warn(`[ProxyFetch] TLS cert verification failed (${err.cause?.code || err.code}), retrying with insecure TLS: ${url}`);
-      const insecureDispatcher = await getDispatcher(proxyUrl, true);
+      const profile = getTransportProfile(url);
+      const insecureDispatcher = await getDispatcher(proxyUrl, true, profile);
       return await originalFetch(url, { ...options, dispatcher: insecureDispatcher });
     }
     throw err;
