@@ -361,7 +361,7 @@ export async function POST(request) {
           const probe = createNousApiKeyProbe(apiKey);
           const res = await requestFetch(probe.url, {
             ...probe.options,
-            signal: AbortSignal.timeout(8000),
+            signal: AbortSignal.timeout(providerTimeoutMs),
           });
           isValid = isNousApiKeyAccepted(res.status);
           if (!isValid) error = getNousApiKeyValidationError(res.status);
@@ -453,7 +453,7 @@ export async function POST(request) {
           };
           const headers = {};
           if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
-          const res = await requestFetch(endpoints[provider], { headers, signal: AbortSignal.timeout(8000) });
+          const res = await requestFetch(endpoints[provider], { headers, signal: AbortSignal.timeout(providerTimeoutMs) });
           // xai returns 400 for bad key, 403 for valid-but-no-credit. Other providers use 401.
           if (provider === "xai") {
             isValid = res.status === 200 || res.status === 403;
@@ -643,7 +643,7 @@ export async function POST(request) {
           // PAT (pt-...) needs the job-token exchange before it can sign
           // anything — the generic OpenAI-compat probe below can't validate it.
           try {
-            const resolved = await resolveQoderCredentials({ provider, apiKey, providerSpecificData }, null, AbortSignal.timeout(8000));
+            const resolved = await resolveQoderCredentials({ provider, apiKey, providerSpecificData }, null, AbortSignal.timeout(providerTimeoutMs));
             const result = await resolveQoderModels(resolved, { forceRefresh: true });
             isValid = !!result?.models?.length;
           } catch (err) {
@@ -671,7 +671,7 @@ export async function POST(request) {
           const modelsUrl = cfg.baseUrl.replace(/\/chat\/completions$/, "/models").replace(/\/chatbot$/, "/models");
           let probeOk = null;
           try {
-            const probeRes = await requestFetch(modelsUrl, { headers, signal: AbortSignal.timeout(8000) });
+            const probeRes = await requestFetch(modelsUrl, { headers, signal: AbortSignal.timeout(providerTimeoutMs) });
             if (probeRes.status === 401 || probeRes.status === 403) probeOk = false;
             else if (probeRes.ok) probeOk = true;
           } catch { /* fallback to chat */ }
@@ -685,7 +685,7 @@ export async function POST(request) {
             method: "POST",
             headers,
             body: JSON.stringify({ model: defaultModel, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
-            signal: AbortSignal.timeout(10000),
+            signal: AbortSignal.timeout(providerTimeoutMs),
           });
           isValid = chatRes.status !== 401 && chatRes.status !== 403;
           break;
