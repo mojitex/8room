@@ -8,7 +8,6 @@ import { resolveSessionId } from "../utils/sessionManager.js";
 import { isMuseSparkModel } from "../providers/models/helpers.js";
 import { applyFingerprintTools } from "../utils/opencodeFingerprint.js";
 import { opencodeTlsFetch } from "../services/opencodeTlsClient.js";
-import { resolveProxyUrlForRequest } from "../utils/proxyFetch.js";
 import { ANTHROPIC_API_VERSION } from "../providers/shared.js";
 import {
   normalizeResponsesInput,
@@ -425,7 +424,7 @@ export class OpenCodeExecutor extends BaseExecutor {
         body: options.body,
       }, {
         signal: options.signal,
-        proxy: proxyUrl || resolveProxyUrlForRequest(url, args?.proxyOptions),
+        proxy: proxyUrl ?? null,
       }),
     });
   }
