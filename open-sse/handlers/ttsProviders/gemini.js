@@ -63,7 +63,7 @@ export default {
     if (!credentials?.apiKey) throw new Error("No Gemini API key configured");
     const { modelId, voiceId } = parseGeminiModelVoice(model);
     const url = `${TTS_BASE}/${modelId}:generateContent?key=${credentials.apiKey}`;
-    const res = await fetch(url, {
+    const res = await (opts.fetchFn || fetch)(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

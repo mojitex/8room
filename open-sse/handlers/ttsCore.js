@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { createErrorResult } from "../utils/error.js";
-import { HTTP_STATUS } from "../config/runtimeConfig.js";
+import { HTTP_STATUS, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig.js";
+import { fetchWithProviderTimeout } from "../utils/providerFetch.js";
 import { getTtsAdapter, synthesizeViaConfig } from "./ttsProviders/index.js";
 
 // Re-export voice fetchers + voices APIs for backward compat with existing routes
@@ -48,23 +49,25 @@ function createTtsResponse(base64Audio, format, responseFormat) {
  *
  * @returns {Promise<{success, response, status?, error?}>}
  */
-export async function handleTtsCore({ provider, model, input, credentials, responseFormat = "mp3", language, style }) {
+export async function handleTtsCore({ provider, model, input, credentials, responseFormat = "mp3", language, style, timeoutMs = FETCH_CONNECT_TIMEOUT_MS }) {
   if (!input?.trim()) {
     return createErrorResult(HTTP_STATUS.BAD_REQUEST, "Missing required field: input");
   }
+
+  const fetchFn = (url, init = {}) => fetchWithProviderTimeout(url, init, timeoutMs);
 
   try {
     // Special-case adapters (google-tts, edge-tts, local-device, elevenlabs, openai, openrouter, gemini, xiaomi-mimo)
     const adapter = getTtsAdapter(provider);
     if (adapter) {
-      const result = await adapter.synthesize(input.trim(), model, credentials, responseFormat, { language, style });
+      const result = await adapter.synthesize(input.trim(), model, credentials, responseFormat, { language, style, fetchFn });
       // Adapter may return a full {success, response} (legacy) or {base64, format}
       if (result.success !== undefined) return result;
       return createTtsResponse(result.base64, result.format, responseFormat);
     }
 
     // Generic config-driven (hyperbolic, deepgram, nvidia, huggingface, inworld, cartesia, playht, coqui, tortoise, qwen, ...)
-    const result = await synthesizeViaConfig(provider, input.trim(), model, credentials);
+    const result = await synthesizeViaConfig(provider, input.trim(), model, credentials, { fetchFn });
     if (result) return createTtsResponse(result.base64, result.format, responseFormat);
 
     return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Provider '${provider}' does not support TTS via this route.`);

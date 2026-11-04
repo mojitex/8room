@@ -5,7 +5,7 @@ import { PROVIDER_MEDIA } from "../../providers/index.js";
 const DEFAULT_TTS_MODEL = PROVIDER_MEDIA["openai"]?.ttsConfig?.defaultModel;
 
 export default {
-  async synthesize(text, model, credentials) {
+  async synthesize(text, model, credentials, _responseFormat, { fetchFn = fetch } = {}) {
     if (!credentials?.apiKey) throw new Error("No OpenAI API key configured");
 
     let ttsModel = DEFAULT_TTS_MODEL;
@@ -18,7 +18,7 @@ export default {
     }
 
     const baseUrl = (credentials.baseUrl || "https://api.openai.com").replace(/\/+$/, "");
-    const res = await fetch(`${baseUrl}/v1/audio/speech`, {
+    const res = await fetchFn(`${baseUrl}/v1/audio/speech`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${credentials.apiKey}` },
       body: JSON.stringify({ model: ttsModel, voice, input: text }),

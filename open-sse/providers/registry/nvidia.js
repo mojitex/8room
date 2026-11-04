@@ -23,6 +23,9 @@ export default {
     timeoutMs: 100000,
     // Repeating a long connection hang multiplies a single failure into a multi-minute request.
     retry: {
+      // Retry one short-lived socket/reset failure, but never replay a full
+      // 100-second connection timeout.
+      network: { attempts: 1, delayMs: 1000 },
       502: { attempts: 0, delayMs: 0 },
       503: { attempts: 2, delayMs: 2000 },
       504: { attempts: 0, delayMs: 0 },

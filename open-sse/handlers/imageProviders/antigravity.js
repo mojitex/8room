@@ -27,7 +27,7 @@ export default {
   buildHeaders: () => ({}),
   buildBody: () => ({}),
 
-  async executeViaExecutor(model, body, credentials, log) {
+  async executeViaExecutor(model, body, credentials, log, { signal, timeoutMs } = {}) {
     const executor = getExecutor("antigravity");
     if (!executor) throw new Error("Antigravity executor not found");
 
@@ -62,6 +62,8 @@ export default {
       stream: false,
       credentials,
       log,
+      signal,
+      providerOverrides: { timeoutMs },
     });
 
     if (!result.response.ok) {

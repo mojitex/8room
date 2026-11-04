@@ -435,7 +435,7 @@ function redactSignedHeaders(headers) {
  *
  * @returns {Promise<{valid: boolean, error: string|null}>}
  */
-export async function probeBedrockCredentials(credentials, fetchFn) {
+export async function probeBedrockCredentials(credentials, fetchFn, timeoutMs = BEDROCK.probeTimeoutMs) {
   let resolved;
   try {
     resolved = await resolveAwsCredentials(credentials);
@@ -456,7 +456,7 @@ export async function probeBedrockCredentials(credentials, fetchFn) {
   const probeCtrl = new AbortController();
   const probeTimer = setTimeout(
     () => probeCtrl.abort(new Error("AWS credential probe timed out")),
-    BEDROCK.probeTimeoutMs,
+    timeoutMs,
   );
   let res;
   try {

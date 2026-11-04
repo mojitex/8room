@@ -12,10 +12,12 @@ import {
   isNousApiKeyAccepted,
 } from "open-sse/services/nous.js";
 import { normalizeProviderId } from "@/lib/providerNormalization";
+import { getSettings } from "@/lib/localDb";
+import { fetchWithProviderTimeout } from "open-sse/utils/providerFetch.js";
 
 // Probe a webSearch/webFetch provider using its searchConfig/fetchConfig.
 // Returns true if API key is accepted (status !== 401 && !== 403).
-async function probeWebProvider(provider, apiKey) {
+async function probeWebProvider(provider, apiKey, requestFetch = fetch) {
   const p = AI_PROVIDERS[provider];
   if (!p) return null;
   // Skip if provider has dual-purpose (LLM + search), let LLM validate handle it
@@ -44,13 +46,13 @@ async function probeWebProvider(provider, apiKey) {
     body = JSON.stringify({ query: "ping", q: "ping", url: "https://example.com" });
   }
 
-  const res = await fetch(url, { method: cfg.method, headers, body, signal: AbortSignal.timeout(8000) });
+  const res = await requestFetch(url, { method: cfg.method, headers, body });
   return res.status !== 401 && res.status !== 403;
 }
 
 // Probe a media provider (tts/embedding/stt/image/video) using *Config.
 // Returns true if API key is accepted; null to skip (let default handler decide).
-async function probeMediaProvider(provider, apiKey) {
+async function probeMediaProvider(provider, apiKey, requestFetch = fetch) {
   const p = AI_PROVIDERS[provider];
   if (!p) return null;
   const MEDIA_KINDS = new Set(["tts", "embedding", "stt", "image", "video", "music", "imageToText"]);
@@ -78,11 +80,10 @@ async function probeMediaProvider(provider, apiKey) {
   }
 
   const method = cfg.method || "POST";
-  const res = await fetch(cfg.baseUrl, {
+  const res = await requestFetch(cfg.baseUrl, {
     method,
     headers,
     body: method === "GET" ? undefined : JSON.stringify({ input: "ping", text: "ping", prompt: "ping", model: getDefaultModel(provider) || "test" }),
-    signal: AbortSignal.timeout(8000),
   });
   return res.status !== 401 && res.status !== 403;
 }
@@ -93,6 +94,13 @@ export async function POST(request) {
     const body = await request.json();
     const provider = normalizeProviderId(body.provider);
     const { apiKey, providerSpecificData } = body;
+
+    const settings = await getSettings();
+    const savedTimeout = Number(settings?.providerTimeoutMs);
+    const providerTimeoutMs = Number.isInteger(savedTimeout) && savedTimeout >= 5000 && savedTimeout <= 600000
+      ? savedTimeout
+      : 100000;
+    const requestFetch = (url, init = {}) => fetchWithProviderTimeout(url, init, providerTimeoutMs);
 
     const isNoAuth = AI_PROVIDERS[provider]?.noAuth === true;
     // Same exemption as the create route: a provider can name a providerSpecificData field
@@ -114,7 +122,7 @@ export async function POST(request) {
           return NextResponse.json({ error: "OpenAI Compatible node not found" }, { status: 404 });
         }
         const modelsUrl = `${node.baseUrl?.replace(/\/$/, "")}/models`;
-        const res = await fetch(modelsUrl, {
+        const res = await requestFetch(modelsUrl, {
           headers: { "Authorization": `Bearer ${apiKey}` },
         });
         isValid = res.ok;
@@ -131,7 +139,7 @@ export async function POST(request) {
           return NextResponse.json({ error: "Custom Embedding node not found" }, { status: 404 });
         }
         const baseUrl = node.baseUrl?.replace(/\/$/, "");
-        const modelsRes = await fetch(`${baseUrl}/models`, {
+        const modelsRes = await requestFetch(`${baseUrl}/models`, {
           headers: { "Authorization": `Bearer ${apiKey}` },
         });
         if (modelsRes.ok) {
@@ -142,7 +150,7 @@ export async function POST(request) {
           return NextResponse.json({ valid: false, error: "Invalid API key" });
         }
         // Fallback: probe /embeddings with a common test model — many providers lack /models
-        const embedRes = await fetch(`${baseUrl}/embeddings`, {
+        const embedRes = await requestFetch(`${baseUrl}/embeddings`, {
           method: "POST",
           headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({ model: "test", input: "ping" }),
@@ -169,7 +177,7 @@ export async function POST(request) {
         const messagesUrl = `${normalizedBase}/v1/messages`;
         const model = node.defaultModel || "claude-3-haiku-20240307";
 
-        const res = await fetch(messagesUrl, {
+        const res = await requestFetch(messagesUrl, {
           method: "POST",
           headers: {
             "x-api-key": apiKey,
@@ -198,12 +206,12 @@ export async function POST(request) {
         const modelCatalogUrl = isGo
           ? "https://opencode.ai/zen/go/v1/models"
           : "https://opencode.ai/inference/v1/models";
-        const res = await fetch(modelCatalogUrl, {
+        const res = await requestFetch(modelCatalogUrl, {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             Accept: "application/json",
           },
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(providerTimeoutMs),
         });
         if (res.status === 401 || res.status === 403) {
           return NextResponse.json({ valid: false, error: `${providerLabel} API key was rejected. Check the key and subscription access.` });
@@ -233,7 +241,7 @@ export async function POST(request) {
           return NextResponse.json({ valid: false, error: "Missing Account ID" });
         }
         const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
-        const cfRes = await fetch(url, {
+        const cfRes = await requestFetch(url, {
           method: "POST",
           headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -263,7 +271,7 @@ export async function POST(request) {
         };
         if (organization) headers["OpenAI-Organization"] = organization;
 
-        const azureRes = await fetch(url, {
+        const azureRes = await requestFetch(url, {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -281,11 +289,11 @@ export async function POST(request) {
       // AWS-signed providers (Bedrock) have no bearer key for the generic probes below, which
       // would reject bedrock outright and send bedrock-xai to a literal "{region}" host.
       if (AI_PROVIDERS[provider]?.credentialForm === "aws") {
-        return NextResponse.json(await probeBedrockCredentials({ apiKey, providerSpecificData }, fetch));
+        return NextResponse.json(await probeBedrockCredentials({ apiKey, providerSpecificData }, requestFetch, providerTimeoutMs));
       }
 
       // Generic probe for webSearch/webFetch providers (config-driven)
-      const webResult = await probeWebProvider(provider, apiKey);
+      const webResult = await probeWebProvider(provider, apiKey, requestFetch);
       if (webResult !== null) {
         return NextResponse.json({
           valid: webResult,
@@ -294,7 +302,7 @@ export async function POST(request) {
       }
 
       // Generic probe for tts/embedding providers (config-driven)
-      const mediaResult = await probeMediaProvider(provider, apiKey);
+      const mediaResult = await probeMediaProvider(provider, apiKey, requestFetch);
       if (mediaResult !== null) {
         return NextResponse.json({
           valid: mediaResult,
@@ -304,21 +312,21 @@ export async function POST(request) {
 
       switch (provider) {
         case "openai":
-          const openaiRes = await fetch("https://api.openai.com/v1/models", {
+          const openaiRes = await requestFetch("https://api.openai.com/v1/models", {
             headers: { "Authorization": `Bearer ${apiKey}` },
           });
           isValid = openaiRes.ok;
           break;
 
         case "vercel-ai-gateway":
-          const vercelAiGatewayRes = await fetch("https://ai-gateway.vercel.sh/v1/models", {
+          const vercelAiGatewayRes = await requestFetch("https://ai-gateway.vercel.sh/v1/models", {
             headers: { "Authorization": `Bearer ${apiKey}` },
           });
           isValid = vercelAiGatewayRes.ok;
           break;
 
         case "anthropic":
-          const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+          const anthropicRes = await requestFetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
               "x-api-key": apiKey,
@@ -335,12 +343,12 @@ export async function POST(request) {
           break;
 
         case "gemini":
-          const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`);
+          const geminiRes = await requestFetch(`https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`);
           isValid = geminiRes.ok;
           break;
 
         case "openrouter":
-          const openrouterRes = await fetch("https://openrouter.ai/api/v1/models", {
+          const openrouterRes = await requestFetch("https://openrouter.ai/api/v1/models", {
             headers: { "Authorization": `Bearer ${apiKey}` },
           });
           isValid = openrouterRes.ok;
@@ -351,9 +359,9 @@ export async function POST(request) {
           // Nous exposes /models publicly, so a models request cannot validate
           // the Portal key. Use the smallest authenticated inference instead.
           const probe = createNousApiKeyProbe(apiKey);
-          const res = await fetch(probe.url, {
+          const res = await requestFetch(probe.url, {
             ...probe.options,
-            signal: AbortSignal.timeout(8000),
+            signal: AbortSignal.timeout(providerTimeoutMs),
           });
           isValid = isNousApiKeyAccepted(res.status);
           if (!isValid) error = getNousApiKeyValidationError(res.status);
@@ -374,7 +382,7 @@ export async function POST(request) {
 
           if (isOpenAiFormat) {
             const testModel = getDefaultModel(provider);
-            const res = await fetch(cfg.baseUrl, {
+            const res = await requestFetch(cfg.baseUrl, {
               method: "POST",
               headers: { "Authorization": `Bearer ${apiKey}`, "content-type": "application/json" },
               body: JSON.stringify({ model: testModel, max_tokens: 1, messages: [{ role: "user", content: "test" }] }),
@@ -382,7 +390,7 @@ export async function POST(request) {
             isValid = res.status !== 401 && res.status !== 403;
           } else {
             const testModel = getDefaultModel(provider) || "claude-sonnet-4-20250514";
-            const res = await fetch(cfg.baseUrl, {
+            const res = await requestFetch(cfg.baseUrl, {
               method: "POST",
               headers: {
                 "x-api-key": apiKey,
@@ -399,7 +407,7 @@ export async function POST(request) {
         }
         case "volcengine-ark":
         case "byteplus": {
-          const res = await fetch(PROVIDERS[provider]?.baseUrl, {
+          const res = await requestFetch(PROVIDERS[provider]?.baseUrl, {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${apiKey}`,
@@ -445,7 +453,7 @@ export async function POST(request) {
           };
           const headers = {};
           if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
-          const res = await fetch(endpoints[provider], { headers, signal: AbortSignal.timeout(8000) });
+          const res = await requestFetch(endpoints[provider], { headers, signal: AbortSignal.timeout(providerTimeoutMs) });
           // xai returns 400 for bad key, 403 for valid-but-no-credit. Other providers use 401.
           if (provider === "xai") {
             isValid = res.status === 200 || res.status === 403;
@@ -466,7 +474,7 @@ export async function POST(request) {
             max_tokens: 1,
             stream: false,
           }, false);
-          const res = await fetch(cfg.baseUrl, {
+          const res = await requestFetch(cfg.baseUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -481,7 +489,7 @@ export async function POST(request) {
         }
 
         case "deepgram": {
-          const res = await fetch("https://api.deepgram.com/v1/projects", {
+          const res = await requestFetch("https://api.deepgram.com/v1/projects", {
             headers: { "Authorization": `Token ${apiKey}` },
           });
           isValid = res.ok;
@@ -489,7 +497,7 @@ export async function POST(request) {
         }
 
         case "blackbox": {
-          const res = await fetch("https://api.blackbox.ai/chat/completions", {
+          const res = await requestFetch("https://api.blackbox.ai/chat/completions", {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${apiKey}`,
@@ -515,7 +523,7 @@ export async function POST(request) {
             isValid = !!(saJson.client_email && saJson.private_key && saJson.project_id);
           } else {
             // Raw key: probe Vertex — 404 means key is valid (model just doesn't exist), 401 means invalid key
-            const probeRes = await fetch(
+            const probeRes = await requestFetch(
               `https://aiplatform.googleapis.com/v1/publishers/google/models/__probe__:generateContent?key=${apiKey}`,
               { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }
             );
@@ -529,7 +537,7 @@ export async function POST(request) {
           if (saJson) {
             isValid = !!(saJson.client_email && saJson.private_key && saJson.project_id);
           } else {
-            const probeRes = await fetch(
+            const probeRes = await requestFetch(
               `https://aiplatform.googleapis.com/v1/publishers/google/models/__probe__:generateContent?key=${apiKey}`,
               { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }
             );
@@ -549,7 +557,7 @@ export async function POST(request) {
           const statsigId = Buffer.from("e:TypeError: Cannot read properties of null (reading 'children')").toString("base64");
           const traceId = randomHex(16);
           const spanId = randomHex(8);
-          const res = await fetch("https://grok.com/rest/app-chat/conversations/new", {
+          const res = await requestFetch("https://grok.com/rest/app-chat/conversations/new", {
             method: "POST",
             headers: {
               Accept: "*/*",
@@ -598,7 +606,7 @@ export async function POST(request) {
             sessionToken = sessionToken.slice("__Secure-next-auth.session-token=".length);
           }
           const tz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC";
-          const res = await fetch("https://www.perplexity.ai/rest/sse/perplexity_ask", {
+          const res = await requestFetch("https://www.perplexity.ai/rest/sse/perplexity_ask", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -635,7 +643,7 @@ export async function POST(request) {
           // PAT (pt-...) needs the job-token exchange before it can sign
           // anything — the generic OpenAI-compat probe below can't validate it.
           try {
-            const resolved = await resolveQoderCredentials({ provider, apiKey, providerSpecificData }, null, AbortSignal.timeout(8000));
+            const resolved = await resolveQoderCredentials({ provider, apiKey, providerSpecificData }, null, AbortSignal.timeout(providerTimeoutMs));
             const result = await resolveQoderModels(resolved, { forceRefresh: true });
             isValid = !!result?.models?.length;
           } catch (err) {
@@ -663,7 +671,7 @@ export async function POST(request) {
           const modelsUrl = cfg.baseUrl.replace(/\/chat\/completions$/, "/models").replace(/\/chatbot$/, "/models");
           let probeOk = null;
           try {
-            const probeRes = await fetch(modelsUrl, { headers, signal: AbortSignal.timeout(8000) });
+            const probeRes = await requestFetch(modelsUrl, { headers, signal: AbortSignal.timeout(providerTimeoutMs) });
             if (probeRes.status === 401 || probeRes.status === 403) probeOk = false;
             else if (probeRes.ok) probeOk = true;
           } catch { /* fallback to chat */ }
@@ -673,11 +681,11 @@ export async function POST(request) {
           }
           // Fallback: minimal chat probe
           const defaultModel = getDefaultModel(provider) || "test";
-          const chatRes = await fetch(cfg.baseUrl, {
+          const chatRes = await requestFetch(cfg.baseUrl, {
             method: "POST",
             headers,
             body: JSON.stringify({ model: defaultModel, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
-            signal: AbortSignal.timeout(10000),
+            signal: AbortSignal.timeout(providerTimeoutMs),
           });
           isValid = chatRes.status !== 401 && chatRes.status !== 403;
           break;
