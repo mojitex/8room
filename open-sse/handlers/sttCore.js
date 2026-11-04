@@ -308,6 +308,11 @@ export async function handleSttCore({ provider, model, formData, credentials, st
   try {
     switch (marker || cfg.format) {
       case "gemini-live": {
+        // The WebSocket setup phase is the connection deadline. Preserve an
+        // explicit client override, but otherwise use the dashboard-wide value.
+        if (!formData.get("setup_timeout_ms")) {
+          formData.set("setup_timeout_ms", String(timeoutMs));
+        }
         const live = await transcribeGeminiLive({ cfg, file, model, token, formData, mimeType: resolveAudioContentType(file) });
         // response_format parity with the OpenAI-compatible transport: default
         // envelope stays {text}; verbose_json adds segments mapped from the
