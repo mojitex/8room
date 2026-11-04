@@ -24,8 +24,6 @@
     "@monaco-editor/react": "^4.7.0",
     "@next/third-parties": "^16.2.9",
     "@node-saml/node-saml": "^5.1.0",
-    "@prisma/composer": "0.28.0",
-    "@prisma/composer-prisma-cloud": "0.28.0",
     "@xyflow/react": "^12.10.1",
     "alchemy": "2.0.0-beta.78",
     "bcryptjs": "^3.0.3",
@@ -72,7 +70,6 @@
     "eslint-config-next": "16.4.2",
     "playwright-core": "^1.62.1",
     "postcss": "^8.5.6",
-    "prisma": "8.0.0-rc.21",
     "tailwindcss": "^4"
   },
   "overrides": {
