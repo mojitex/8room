@@ -110,6 +110,7 @@ function withConnectionHeader(response, connectionId) {
 export async function handleVideoCreate(request, action) {
   const authError = await requireValidApiKey(request);
   if (authError) return authError;
+  const settings = await getSettings();
 
   const bodyInfo = await readForwardableBody(request);
   if (bodyInfo.error) return bodyInfo.error;
@@ -164,6 +165,7 @@ export async function handleVideoCreate(request, action) {
       idempotencyKey,
       credentials: refreshedCredentials,
       signal: request.signal,
+      timeoutMs: settings.providerTimeoutMs || 100000,
       log,
       onCredentialsRefreshed: async (newCreds) => {
         await updateProviderCredentials(credentials.connectionId, {
@@ -205,6 +207,7 @@ export async function handleVideoCreate(request, action) {
 export async function handleVideoGet(request, requestId) {
   const authError = await requireValidApiKey(request);
   if (authError) return authError;
+  const settings = await getSettings();
 
   if (!requestId) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing video request id");
 
@@ -223,6 +226,7 @@ export async function handleVideoGet(request, requestId) {
     requestId,
     credentials: refreshedCredentials,
     signal: request.signal,
+    timeoutMs: settings.providerTimeoutMs || 100000,
     log,
     onCredentialsRefreshed: async (newCreds) => {
       await updateProviderCredentials(credentials.connectionId, {
