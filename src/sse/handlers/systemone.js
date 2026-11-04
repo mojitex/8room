@@ -119,6 +119,7 @@ export async function handleSystemone(request) {
       modelInfo: { provider, model },
       credentials: refreshedCredentials,
       log,
+      timeoutMs: settings.providerTimeoutMs || 100000,
       onRequestSuccess: async () => {
         await clearAccountError(credentials.connectionId, credentials, model);
       }
