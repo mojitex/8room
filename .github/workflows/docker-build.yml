@@ -78,12 +78,42 @@ jobs:
               const directSession = await wreq.createSession({ emulation });
               await directSession.close?.();
 
-              // wreq-js only accepts proxies at session creation time.
+              // wreq-js only accepts proxies at session creation time. Use a
+              // local rejecting CONNECT proxy to assert that the session really
+              // routes HTTPS through the configured proxy without external access.
+              const { createServer } = await import("node:http");
+              const proxyServer = createServer();
+              let proxyRequestSeen = false;
+              proxyServer.on("connect", (_request, socket) => {
+                proxyRequestSeen = true;
+                socket.end("HTTP/1.1 502 Bad Gateway\\r\\nConnection: close\\r\\n\\r\\n");
+              });
+              proxyServer.on("request", (_request, response) => {
+                proxyRequestSeen = true;
+                response.writeHead(502);
+                response.end();
+              });
+              await new Promise((resolve, reject) => {
+                proxyServer.once("error", reject);
+                proxyServer.listen(0, "127.0.0.1", resolve);
+              });
+
+              const proxyAddress = proxyServer.address();
               const proxiedSession = await wreq.createSession({
                 emulation,
-                proxy: "http://127.0.0.1:8888"
+                proxy: `http://127.0.0.1:${proxyAddress.port}`
               });
+              try {
+                await proxiedSession.fetch("https://wreq-proxy-smoke.invalid/", { timeout: 5000 });
+              } catch {
+                // The local test proxy intentionally rejects the CONNECT tunnel.
+              }
               await proxiedSession.close?.();
+              await new Promise((resolve) => proxyServer.close(resolve));
+
+              if (!proxyRequestSeen) {
+                throw new Error("wreq-js did not send HTTPS through the configured proxy");
+              }
 
               console.log("OpenCode direct and proxy TLS runtime dependencies passed");
             '
