@@ -1,4 +1,4 @@
-import { getProviderConnectionById, updateProviderConnection } from "@/lib/localDb";
+import { getProviderConnectionById, updateProviderConnection, getSettings } from "@/lib/localDb";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { testProxyUrl } from "@/lib/network/proxyTest";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
@@ -8,7 +8,12 @@ import { PROVIDERS } from "open-sse/config/providers.js";
 
 async function fetchWithConnectionProxy(url, options = {}, effectiveProxy = null) {
   if (!options.signal) {
-    options.signal = AbortSignal.timeout(15000);
+    const settings = await getSettings().catch(() => null);
+    const configuredTimeout = Number(settings?.providerTimeoutMs);
+    const timeoutMs = Number.isInteger(configuredTimeout) && configuredTimeout >= 5000 && configuredTimeout <= 600000
+      ? configuredTimeout
+      : 100000;
+    options.signal = AbortSignal.timeout(timeoutMs);
   }
 
   if (effectiveProxy?.vercelRelayUrl) {

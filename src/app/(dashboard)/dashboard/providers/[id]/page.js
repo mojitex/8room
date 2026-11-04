@@ -728,10 +728,11 @@ export default function ProviderDetailPage() {
     setOneByOneStopping(false);
     setOneByOneCurrentConnectionId(null);
     setOneByOneResults(queuedState);
-    setOneByOneSummary({ total: connections.length, completed: 0, passed: 0, failed: 0, stopped: false });
+    setOneByOneSummary({ total: connections.length, completed: 0, passed: 0, failed: 0, skipped: 0, stopped: false });
 
     let passed = 0;
     let failed = 0;
+    let skipped = 0;
 
     try {
       for (let index = 0; index < connections.length; index += 1) {
@@ -741,6 +742,7 @@ export default function ProviderDetailPage() {
             completed: index,
             passed,
             failed,
+            skipped,
             stopped: true,
           });
           break;
@@ -757,18 +759,17 @@ export default function ProviderDetailPage() {
           const res = await fetch(`/api/providers/${connection.id}/test`, { method: "POST" });
           const data = await res.json();
           const valid = !!data.valid;
+          const wasSkipped = data.skipped === true;
 
-          if (valid) {
-            passed += 1;
-          } else {
-            failed += 1;
-          }
+          if (wasSkipped) skipped += 1;
+          else if (valid) passed += 1;
+          else failed += 1;
 
           setOneByOneResults((prev) => ({
             ...prev,
             [connection.id]: {
-              state: valid ? "success" : "failed",
-              error: valid ? null : (data.error || null),
+              state: wasSkipped ? "skipped" : valid ? "success" : "failed",
+              error: wasSkipped || !valid ? (data.error || null) : null,
             },
           }));
         } catch (error) {
@@ -787,6 +788,7 @@ export default function ProviderDetailPage() {
           completed: index + 1,
           passed,
           failed,
+          skipped,
           stopped: false,
         });
 
@@ -1183,7 +1185,7 @@ export default function ProviderDetailPage() {
   );
 
   const handleTestModel = async (modelId) => {
-    if (testingModelIds.has(modelId)) return;
+    if (providerId === "opencode" || testingModelIds.has(modelId)) return;
     setTestingModelIds((prev) => new Set(prev).add(modelId));
     try {
       const res = await fetch("/api/models/test", {
@@ -1258,7 +1260,7 @@ export default function ProviderDetailPage() {
               }
             }}
             testStatus={modelTestResults[model.id]}
-            onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
+            onTest={providerId !== "opencode" && (connections.length > 0 || isFreeNoAuth) ? () => handleTestModel(model.id) : undefined}
             isTesting={testingModelIds.has(model.id)}
             isCustom
             isFree={false}
@@ -1284,7 +1286,7 @@ export default function ProviderDetailPage() {
               onSetAlias={(alias) => handleSetAlias(model.id, alias, providerStorageAlias)}
               onDeleteAlias={() => handleDeleteAlias(existingAlias)}
               testStatus={modelTestResults[model.id]}
-              onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
+              onTest={providerId !== "opencode" && (connections.length > 0 || isFreeNoAuth) ? () => handleTestModel(model.id) : undefined}
               isTesting={testingModelIds.has(model.id)}
               isFree={model.isFree}
               onDisable={() => handleDisableModel(model.id)}
@@ -1705,6 +1707,7 @@ export default function ProviderDetailPage() {
                     <span>Completed: {oneByOneSummary.completed}</span>
                     <span>Passed: {oneByOneSummary.passed}</span>
                     <span>Failed: {oneByOneSummary.failed}</span>
+                    <span>Skipped: {oneByOneSummary.skipped || 0}</span>
                     {oneByOneSummary.stopped && (
                       <span className="text-amber-600 dark:text-amber-400">Stopped</span>
                     )}

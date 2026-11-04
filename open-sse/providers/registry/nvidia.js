@@ -24,7 +24,7 @@ export default {
     // Repeating a long connection hang multiplies a single failure into a multi-minute request.
     retry: {
       502: { attempts: 0, delayMs: 0 },
-      503: { attempts: 1, delayMs: 1500 },
+      503: { attempts: 2, delayMs: 2000 },
       504: { attempts: 0, delayMs: 0 },
     },
   },

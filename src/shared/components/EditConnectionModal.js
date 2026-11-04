@@ -347,7 +347,11 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
           />
         )}
 
-        {!isCompatible && !isAzure && !isCloudflareAi && (
+        {connection?.provider === "opencode" ? (
+          <p className="text-xs text-text-muted">
+            OpenCode Free live probes are disabled in the dashboard. A request test is not supported here.
+          </p>
+        ) : !isCompatible && !isAzure && !isCloudflareAi ? (
           <div className="flex items-center gap-3">
             <Button onClick={handleTest} variant="secondary" disabled={testing}>
               {testing ? "Testing..." : "Test Connection"}
@@ -358,7 +362,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
               </Badge>
             )}
           </div>
-        )}
+        ) : null}
 
         <div className="flex gap-2">
           <Button onClick={handleSubmit} fullWidth disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
