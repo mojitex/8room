@@ -46,7 +46,7 @@ async function probeWebProvider(provider, apiKey, requestFetch = fetch) {
     body = JSON.stringify({ query: "ping", q: "ping", url: "https://example.com" });
   }
 
-  const res = await requestFetch(url, { method: cfg.method, headers, body, signal: AbortSignal.timeout(providerTimeoutMs) });
+  const res = await requestFetch(url, { method: cfg.method, headers, body });
   return res.status !== 401 && res.status !== 403;
 }
 
@@ -84,7 +84,6 @@ async function probeMediaProvider(provider, apiKey, requestFetch = fetch) {
     method,
     headers,
     body: method === "GET" ? undefined : JSON.stringify({ input: "ping", text: "ping", prompt: "ping", model: getDefaultModel(provider) || "test" }),
-    signal: AbortSignal.timeout(8000),
   });
   return res.status !== 401 && res.status !== 403;
 }
