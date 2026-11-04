@@ -1185,7 +1185,7 @@ export default function ProviderDetailPage() {
   );
 
   const handleTestModel = async (modelId) => {
-    if (providerId === "opencode" || testingModelIds.has(modelId)) return;
+    if (testingModelIds.has(modelId)) return;
     setTestingModelIds((prev) => new Set(prev).add(modelId));
     try {
       const res = await fetch("/api/models/test", {
@@ -1260,7 +1260,7 @@ export default function ProviderDetailPage() {
               }
             }}
             testStatus={modelTestResults[model.id]}
-            onTest={providerId !== "opencode" && (connections.length > 0 || isFreeNoAuth) ? () => handleTestModel(model.id) : undefined}
+            onTest={(connections.length > 0 || isFreeNoAuth) ? () => handleTestModel(model.id) : undefined}
             isTesting={testingModelIds.has(model.id)}
             isCustom
             isFree={false}
@@ -1286,7 +1286,7 @@ export default function ProviderDetailPage() {
               onSetAlias={(alias) => handleSetAlias(model.id, alias, providerStorageAlias)}
               onDeleteAlias={() => handleDeleteAlias(existingAlias)}
               testStatus={modelTestResults[model.id]}
-              onTest={providerId !== "opencode" && (connections.length > 0 || isFreeNoAuth) ? () => handleTestModel(model.id) : undefined}
+              onTest={(connections.length > 0 || isFreeNoAuth) ? () => handleTestModel(model.id) : undefined}
               isTesting={testingModelIds.has(model.id)}
               isFree={model.isFree}
               onDisable={() => handleDisableModel(model.id)}
@@ -1351,7 +1351,7 @@ export default function ProviderDetailPage() {
                 {notAdded.map((m) => {
                   const isTesting = testingModelIds.has(m.id);
                   const testStatus = modelTestResults[m.id];
-                  const canTest = providerId !== "opencode" && (connections.length > 0 || isFreeNoAuth);
+                  const canTest = connections.length > 0 || isFreeNoAuth;
                   const testLabel = isTesting
                     ? `Testing ${m.name || m.id}`
                     : testStatus === "ok"
