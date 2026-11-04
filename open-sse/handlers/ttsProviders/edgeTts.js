@@ -9,10 +9,10 @@ const cache = { token: null, tokenTime: 0 };
 let _voicesCache = null;
 let _voicesCacheTime = 0;
 
-async function getToken() {
+async function getToken(fetchFn = fetch) {
   const now = Date.now();
   if (cache.token && now - cache.tokenTime < REFRESH_MS) return cache.token;
-  const res = await fetch("https://www.bing.com/translator", {
+  const res = await fetchFn("https://www.bing.com/translator", {
     headers: { "User-Agent": UA, "Accept-Language": "vi,en-US;q=0.9,en;q=0.8" },
   });
   if (!res.ok) throw new Error(`Bing translator fetch failed: ${res.status}`);
@@ -26,7 +26,7 @@ async function getToken() {
   return cache.token;
 }
 
-async function ttsRequest(text, voiceId, token) {
+async function ttsRequest(text, voiceId, token, fetchFn = fetch) {
   const parts = voiceId.split("-");
   const xmlLang = parts.slice(0, 2).join("-");
   const gender = voiceId.toLowerCase().includes("male") ? "Male" : "Female";
@@ -35,7 +35,7 @@ async function ttsRequest(text, voiceId, token) {
   body.append("ssml", ssml);
   body.append("token", token.token);
   body.append("key", token.key);
-  return fetch("https://www.bing.com/tfettts?isVertical=1&&IG=1&IID=translator.5023&SFX=1", {
+  return fetchFn("https://www.bing.com/tfettts?isVertical=1&&IG=1&IID=translator.5023&SFX=1", {
     method: "POST",
     body: body.toString(),
     headers: {
@@ -65,10 +65,10 @@ export async function fetchEdgeTtsVoices() {
 
 export default {
   noAuth: true,
-  async synthesize(text, model) {
+  async synthesize(text, model, _credentials, _responseFormat, { fetchFn = fetch } = {}) {
     const voiceId = model || "vi-VN-HoaiMyNeural";
-    let token = await getToken();
-    let res = await ttsRequest(text, voiceId, token);
+    let token = await getToken(fetchFn);
+    let res = await ttsRequest(text, voiceId, token, fetchFn);
 
     // 429/403: invalidate cache and retry once
     if (res.status === 429 || res.status === 403) {
