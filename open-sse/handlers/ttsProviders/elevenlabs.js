@@ -22,13 +22,13 @@ export async function fetchElevenLabsVoices(apiKey) {
 }
 
 export default {
-  async synthesize(text, model, credentials) {
+  async synthesize(text, model, credentials, _responseFormat, { fetchFn = fetch } = {}) {
     if (!credentials?.apiKey) throw new Error("ElevenLabs API key required");
     let modelId = "eleven_flash_v2_5";
     let voiceId = model;
     if (model && model.includes("/")) [modelId, voiceId] = model.split("/");
 
-    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    const res = await fetchFn(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: "POST",
       headers: { "xi-api-key": credentials.apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({
