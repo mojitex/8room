@@ -65,6 +65,9 @@ export default function ProfilePage() {
   const [proxyStatus, setProxyStatus] = useState({ type: "", message: "" });
   const [proxyLoading, setProxyLoading] = useState(false);
   const [proxyTestLoading, setProxyTestLoading] = useState(false);
+  const [providerTimeoutSeconds, setProviderTimeoutSeconds] = useState("100");
+  const [providerTimeoutStatus, setProviderTimeoutStatus] = useState({ type: "", message: "" });
+  const [providerTimeoutLoading, setProviderTimeoutLoading] = useState(false);
 
   const [isRemoteHost, setIsRemoteHost] = useState(false);
   useEffect(() => {
@@ -77,6 +80,7 @@ export default function ProfilePage() {
       .then((res) => res.json())
       .then((data) => {
         setSettings(data);
+        setProviderTimeoutSeconds(String(Math.round((Number(data?.providerTimeoutMs) || 100000) / 1000)));
         setOidcForm({
           authMode: data?.authMode || "password",
           oidcIssuerUrl: data?.oidcIssuerUrl || "",
@@ -142,6 +146,36 @@ export default function ProfilePage() {
       setProxyStatus({ type: "error", message: "An error occurred" });
     } finally {
       setProxyLoading(false);
+    }
+  };
+
+  const saveProviderTimeout = async (e) => {
+    e.preventDefault();
+    const seconds = Number(providerTimeoutSeconds);
+    if (!Number.isInteger(seconds) || seconds < 5 || seconds > 600) {
+      setProviderTimeoutStatus({ type: "error", message: "Enter a value between 5 and 600 seconds." });
+      return;
+    }
+
+    setProviderTimeoutLoading(true);
+    setProviderTimeoutStatus({ type: "", message: "" });
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerTimeoutMs: seconds * 1000 }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSettings((prev) => ({ ...prev, ...data }));
+        setProviderTimeoutStatus({ type: "success", message: `Provider timeout saved: ${seconds} seconds.` });
+      } else {
+        setProviderTimeoutStatus({ type: "error", message: data.error || "Failed to save provider timeout." });
+      }
+    } catch {
+      setProviderTimeoutStatus({ type: "error", message: "An error occurred while saving the provider timeout." });
+    } finally {
+      setProviderTimeoutLoading(false);
     }
   };
 
@@ -1491,6 +1525,52 @@ export default function ProfilePage() {
                 : " Combos always start with their first model."}
             </p>
           </div>
+        </Card>
+
+        {/* Provider Connection Timeout */}
+        <Card>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-600 shrink-0">
+              <span className="material-symbols-outlined text-[20px]">timer</span>
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold">Provider Connection Timeout</h3>
+              <p className="text-xs sm:text-sm text-text-muted">
+                Default timeout for upstream provider response headers.
+              </p>
+            </div>
+          </div>
+          <form onSubmit={saveProviderTimeout} className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <div className="flex-1 flex flex-col gap-2">
+              <label className="font-medium text-sm sm:text-base">Timeout (seconds)</label>
+              <Input
+                type="number"
+                min="5"
+                max="600"
+                step="1"
+                value={providerTimeoutSeconds}
+                onChange={(e) => setProviderTimeoutSeconds(e.target.value)}
+                disabled={loading || providerTimeoutLoading}
+              />
+              <p className="text-xs sm:text-sm text-text-muted">
+                Default: 100 seconds. Applies to provider connection and initial response only; an active stream can continue longer.
+              </p>
+            </div>
+            <Button
+              type="submit"
+              variant="primary"
+              loading={providerTimeoutLoading}
+              disabled={loading}
+              className="w-full sm:w-auto"
+            >
+              Save timeout
+            </Button>
+          </form>
+          {providerTimeoutStatus.message && (
+            <p className={`text-xs sm:text-sm mt-3 ${providerTimeoutStatus.type === "error" ? "text-red-500" : "text-green-500"}`}>
+              {providerTimeoutStatus.message}
+            </p>
+          )}
         </Card>
 
         {/* Network */}

@@ -20,7 +20,7 @@ export default {
   transport: {
     baseUrl: "https://integrate.api.nvidia.com/v1/chat/completions",
     validateUrl: "https://integrate.api.nvidia.com/v1/models",
-    timeoutMs: 60000,
+    timeoutMs: 100000,
     // Repeating a long connection hang multiplies a single failure into a multi-minute request.
     retry: {
       502: { attempts: 0, delayMs: 0 },
