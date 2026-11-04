@@ -304,8 +304,14 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       pxpipeTransform: chatSettings.pxpipeEnabled ? await getPxpipeTransform() : null,
       onPxpipeEvent: appendPxpipeEvent,
       providerThinking,
-      // Per-provider user overrides (custom headers / connect timeout) from settings
-      providerOverrides: (chatSettings.providerOverrides || {})[provider] || null,
+      // Per-provider custom headers plus the global upstream connection timeout.
+      // A future explicit per-provider timeout can override the global value.
+      providerOverrides: {
+        ...((chatSettings.providerOverrides || {})[provider] || {}),
+        timeoutMs: (chatSettings.providerOverrides || {})[provider]?.timeoutMs
+          ?? chatSettings.providerTimeoutMs
+          ?? 100000,
+      },
       // Detect source format by endpoint + body
       sourceFormatOverride: request?.url ? detectFormatByEndpoint(new URL(request.url).pathname, body) : null,
       onCredentialsRefreshed: async (newCreds) => {
