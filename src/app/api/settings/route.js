@@ -42,6 +42,18 @@ export async function PATCH(request) {
     // Strip protected secrets before any internal handling sets them
     for (const key of PROTECTED_SETTING_KEYS) delete body[key];
 
+    // Validate the global upstream provider timeout (5–600 seconds).
+    if (Object.prototype.hasOwnProperty.call(body, "providerTimeoutMs")) {
+      const timeoutMs = Number(body.providerTimeoutMs);
+      if (!Number.isInteger(timeoutMs) || timeoutMs < 5000 || timeoutMs > 600000) {
+        return NextResponse.json(
+          { error: "Provider timeout must be between 5 and 600 seconds." },
+          { status: 400 }
+        );
+      }
+      body.providerTimeoutMs = timeoutMs;
+    }
+
     // If updating password, hash it
     if (body.newPassword) {
       const settings = await getSettings();
