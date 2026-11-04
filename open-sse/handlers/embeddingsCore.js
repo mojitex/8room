@@ -17,6 +17,7 @@ export async function handleEmbeddingsCore({
   log,
   onCredentialsRefreshed,
   onRequestSuccess,
+  timeoutMs = FETCH_CONNECT_TIMEOUT_MS,
 }) {
   const { provider, model } = modelInfo;
 
@@ -66,7 +67,7 @@ export async function handleEmbeddingsCore({
       headers,
       body: JSON.stringify(requestBody),
       ...(typeof AbortSignal?.timeout === "function"
-        ? { signal: AbortSignal.timeout(FETCH_CONNECT_TIMEOUT_MS) }
+        ? { signal: AbortSignal.timeout(timeoutMs) }
         : {}),
     });
   } catch (error) {
