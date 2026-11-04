@@ -11,7 +11,7 @@ const DEFAULT_MODEL = "kokoro";
 const DEFAULT_VOICE = "af_heart";
 
 export default {
-  async synthesize(text, model, credentials, responseFormat = "mp3") {
+  async synthesize(text, model, credentials, responseFormat = "mp3", { fetchFn = fetch } = {}) {
     // Accept either providerSpecificData.baseUrl (how the custom embedding and
     // STT providers carry it) or a bare credentials.baseUrl (how the OpenAI TTS
     // adapter does), so a connection configured either way works.
@@ -46,7 +46,7 @@ export default {
       }
     }
 
-    const res = await fetch(`${base}/v1/audio/speech`, {
+    const res = await fetchFn(`${base}/v1/audio/speech`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
