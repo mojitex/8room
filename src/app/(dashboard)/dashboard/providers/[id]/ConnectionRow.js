@@ -170,6 +170,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
     if (oneByOneStatus.state === "success") return "success";
     if (oneByOneStatus.state === "failed") return "error";
     if (oneByOneStatus.state === "testing") return "primary";
+    if (oneByOneStatus.state === "skipped") return "default";
     return "default";
   };
 
@@ -178,6 +179,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
     if (oneByOneStatus.state === "queued") return "queued";
     if (oneByOneStatus.state === "testing") return "testing";
     if (oneByOneStatus.state === "success") return "success";
+    if (oneByOneStatus.state === "skipped") return "skipped";
     if (oneByOneStatus.state === "failed") return oneByOneStatus.error ? `failed: ${oneByOneStatus.error}` : "failed";
     return null;
   };
