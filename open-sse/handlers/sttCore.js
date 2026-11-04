@@ -270,7 +270,7 @@ function resolveModelTransport(provider, model) {
  * it in the app layer; built-ins fall back to the registry entry marker).
  * @returns {Promise<{success, response, status?, error?}>}
  */
-export async function handleSttCore({ provider, model, formData, credentials, sttConfig, transport }) {
+export async function handleSttCore({ provider, model, formData, credentials, sttConfig, transport, signal, proxyOptions }) {
   const file = formData.get("file");
   if (!file) return createErrorResult(HTTP_STATUS.BAD_REQUEST, "Missing required field: file");
 
