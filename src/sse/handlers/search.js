@@ -143,7 +143,8 @@ async function handleSingleProviderSearch(body, providerInput, request, apiKey, 
       provider: resolvedProvider,
       providerConfig,
       credentials: null,
-      log
+      log,
+      timeoutMs: settings.providerTimeoutMs || 100000,
     });
     if (result.success) return result.response;
     return result.response;
@@ -207,6 +208,7 @@ async function handleSingleProviderSearch(body, providerInput, request, apiKey, 
       providerConfig,
       credentials: refreshedCredentials,
       log,
+      timeoutMs: settings.providerTimeoutMs || 100000,
       onCredentialsRefreshed: async (newCreds) => {
         await updateProviderCredentials(credentials.connectionId, {
           accessToken: newCreds.accessToken,
