@@ -12,7 +12,7 @@ import { normalizeSearchResponse } from "./normalizers.js";
 import { handleChatSearch } from "./chatSearch.js";
 import { fetchPublic } from "../../../src/shared/utils/ssrfGuard.js";
 
-const GLOBAL_TIMEOUT_MS = 15000;
+const DEFAULT_SEARCH_TIMEOUT_MS = 100000;
 const NON_RETRIABLE = new Set([400, 401, 403, 404]);
 
 const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
@@ -62,7 +62,7 @@ function successResult(data) {
  * Run a single dedicated search provider attempt.
  * @returns {Promise<{success:boolean, status?:number, error?:string, data?:object}>}
  */
-async function tryDedicatedProvider({ provider, providerConfig, body, credentials, log, globalStartTime }) {
+async function tryDedicatedProvider({ provider, providerConfig, body, credentials, log, globalStartTime, timeoutMs }) {
   const startTime = Date.now();
   const token = credentials?.apiKey || credentials?.accessToken || undefined;
 
@@ -93,8 +93,8 @@ async function tryDedicatedProvider({ provider, providerConfig, body, credential
   }
 
   // Timeout = min(provider timeout, remaining global)
-  const remaining = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
-  const timeout = Math.min(providerConfig.timeoutMs || 10000, Math.max(remaining, 1000));
+  const remaining = timeoutMs - (Date.now() - globalStartTime);
+  const timeout = Math.max(1000, remaining);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
 
@@ -156,7 +156,7 @@ async function tryDedicatedProvider({ provider, providerConfig, body, credential
  * @param {object|null} options.credentials  Provider credentials
  * @param {object}   [options.log]           Logger
  */
-export async function handleSearchCore({ body, provider, providerConfig, credentials, log }) {
+export async function handleSearchCore({ body, provider, providerConfig, credentials, log, timeoutMs = DEFAULT_SEARCH_TIMEOUT_MS }) {
   const globalStartTime = Date.now();
 
   // 1. Sanitize query
@@ -173,7 +173,8 @@ export async function handleSearchCore({ body, provider, providerConfig, credent
       body: normalizedBody,
       credentials,
       log,
-      globalStartTime
+      globalStartTime,
+      timeoutMs,
     });
   } else if (provider.searchViaChat) {
     result = await handleChatSearch({
@@ -182,7 +183,8 @@ export async function handleSearchCore({ body, provider, providerConfig, credent
       maxResults: normalizedBody.max_results,
       model: provider.searchViaChat.defaultModel,
       credentials,
-      log
+      log,
+      timeoutMs,
     });
   } else {
     return errorResult(400, `Provider ${provider.id} does not support web search`);
@@ -204,7 +206,8 @@ export async function handleSearchCore({ body, provider, providerConfig, credent
       maxResults: normalizedBody.max_results,
       model: provider.searchViaChat.defaultModel,
       credentials,
-      log
+      log,
+      timeoutMs,
     });
     if (fallback.success) return successResult(fallback.data);
   }
