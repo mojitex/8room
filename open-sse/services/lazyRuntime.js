@@ -1,4 +1,4 @@
-// Lazy loader for heavy optional runtime deps (playwright-core, wreq-js).
+// Runtime dependency loader with on-demand installation fallback (playwright-core, wreq-js).
 //
 // Runtime packages are resolved from the app install first. Packages not
 // shipped with a particular installation can be downloaded into <DATA_DIR>/runtime
