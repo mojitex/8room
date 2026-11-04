@@ -129,9 +129,10 @@ jobs:
         shell: bash
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          if [[ -n "$DOCKER_USERNAME" && -n "$DOCKERHUB_TOKEN" ]]; then
+          if [[ ( -n "$DOCKER_USERNAME" || -n "$DOCKERHUB_USERNAME" ) && -n "$DOCKERHUB_TOKEN" ]]; then
             echo "configured=true" >> "$GITHUB_OUTPUT"
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
@@ -142,7 +143,7 @@ jobs:
         if: github.event_name != 'pull_request' && steps.dockerhub.outputs.configured == 'true'
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
+          username: ${{ secrets.DOCKER_USERNAME || secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Publish tested image
