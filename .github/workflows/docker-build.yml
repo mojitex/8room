@@ -86,7 +86,7 @@ jobs:
               let proxyRequestSeen = false;
               proxyServer.on("connect", (_request, socket) => {
                 proxyRequestSeen = true;
-                socket.end("HTTP/1.1 502 Bad Gateway\\r\\nConnection: close\\r\\n\\r\\n");
+                socket.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
               });
               proxyServer.on("request", (_request, response) => {
                 proxyRequestSeen = true;
