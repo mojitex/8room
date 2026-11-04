@@ -21,13 +21,14 @@ export default {
     baseUrl: "https://integrate.api.nvidia.com/v1/chat/completions",
     validateUrl: "https://integrate.api.nvidia.com/v1/models",
     timeoutMs: 100000,
-    // Repeating a long connection hang multiplies a single failure into a multi-minute request.
+    // Keep recovery retries short so transient upstream errors do not add
+    // several seconds of avoidable latency to NVIDIA requests.
     retry: {
       // Retry one short-lived socket/reset failure, but never replay a full
       // 100-second connection timeout.
-      network: { attempts: 1, delayMs: 1000 },
+      network: { attempts: 1, delayMs: 250 },
       502: { attempts: 0, delayMs: 0 },
-      503: { attempts: 2, delayMs: 2000 },
+      503: { attempts: 1, delayMs: 500 },
       504: { attempts: 0, delayMs: 0 },
     },
   },
