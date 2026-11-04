@@ -1351,7 +1351,7 @@ export default function ProviderDetailPage() {
                 {notAdded.map((m) => {
                   const isTesting = testingModelIds.has(m.id);
                   const testStatus = modelTestResults[m.id];
-                  const canTest = providerId !== "opencode" && (connections.length > 0 || isFreeNoAuth);
+                  const canTest = connections.length > 0 || isFreeNoAuth;
                   const testLabel = isTesting
                     ? `Testing ${m.name || m.id}`
                     : testStatus === "ok"
