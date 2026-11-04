@@ -4,7 +4,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-RUN npm install --include=dev
+RUN npm ci --include=dev
 
 FROM node:24-bookworm-slim AS builder
 WORKDIR /app
