@@ -228,6 +228,18 @@ function resolveConnectionProxyUrl(targetUrl, proxyOptions) {
 }
 
 /**
+ * Resolve the same effective proxy used by proxyAwareFetch.
+ * Protocol-specific transports (such as OpenCode's wreq-js session) need
+ * this value at session creation time because their proxy cannot be changed
+ * on individual requests.
+ */
+export function resolveProxyUrlForRequest(targetUrl, proxyOptions = null) {
+  const connectionProxyUrl = resolveConnectionProxyUrl(targetUrl, proxyOptions);
+  const envProxyUrl = connectionProxyUrl ? null : normalizeProxyUrl(getEnvProxyUrl(targetUrl));
+  return connectionProxyUrl || envProxyUrl;
+}
+
+/**
  * Create proxy dispatcher lazily (undici-compatible)
  */
 async function getDispatcher(proxyUrl, insecure = false) {
@@ -253,12 +265,14 @@ async function getDispatcher(proxyUrl, insecure = false) {
 
 async function fetchWithTlsFallback(url, options, proxyUrl) {
   try {
-    // Protocol adapters may need Node's HTTP/1 transport on the direct path.
-    // Keep proxy/no-proxy resolution and strict-proxy enforcement here.
-    if (!proxyUrl && options.directFetch) return await options.directFetch(url, options);
+    // Protocol-specific transports receive the resolved proxy and must keep
+    // their own TLS identity on both direct and proxied connections.
+    if (options.directFetch) return await options.directFetch(url, options, proxyUrl);
     const dispatcher = proxyUrl ? await getDispatcher(proxyUrl) : undefined;
     return await originalFetch(url, dispatcher ? { ...options, dispatcher } : options);
   } catch (err) {
+    // Never silently downgrade a protocol-specific transport to native Node TLS.
+    if (options.directFetch) throw err;
     const isStrictSsl = options.strictTls === true || process.env.STRICT_SSL === "true" || process.env.STRICT_SSL === "1";
     if (!isStrictSsl && isTlsCertError(err)) {
       if (options.body && typeof options.body.getReader === "function" && options.body.locked) {
@@ -335,8 +349,15 @@ async function createBypassRequest(parsedUrl, realIP, options) {
 export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   const targetUrl = typeof url === "string" ? url : url.toString();
 
-  // Vercel relay: forward request via relay headers
+  // Vercel relay terminates the origin connection in another service, so a
+  // protocol-specific TLS fingerprint cannot be preserved across this relay.
+  // Refuse rather than silently degrading OpenCode Free to native TLS.
   const vercelRelayUrl = normalizeString(proxyOptions?.vercelRelayUrl);
+  if (vercelRelayUrl && options.directFetch) {
+    throw new Error("[ProxyFetch] This provider requires end-to-end TLS impersonation and cannot use the Vercel relay. Configure a direct or connection/environment proxy instead.");
+  }
+
+  // Vercel relay: forward request via relay headers
   if (vercelRelayUrl) {
     const parsed = new URL(targetUrl);
     const baseHeaders = options.headers instanceof Headers
@@ -350,9 +371,7 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
     return originalFetch(vercelRelayUrl, { ...options, headers: relayHeaders });
   }
 
-  const connectionProxyUrl = resolveConnectionProxyUrl(targetUrl, proxyOptions);
-  const envProxyUrl = connectionProxyUrl ? null : normalizeProxyUrl(getEnvProxyUrl(targetUrl));
-  const proxyUrl = connectionProxyUrl || envProxyUrl;
+  const proxyUrl = resolveProxyUrlForRequest(targetUrl, proxyOptions);
 
   // MITM DNS bypass: for known MITM-intercepted hosts, resolve real IP to avoid DNS spoof
   if (shouldBypassMitmDns(targetUrl)) {
