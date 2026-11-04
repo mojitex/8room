@@ -9,13 +9,13 @@ const DEFAULT_MODEL = "mimo-v2.5-tts";
 const DEFAULT_VOICE = "mimo_default";
 
 export default {
-  synthesize(text, model, credentials, responseFormat, { style, language } = {}) {
+  synthesize(text, model, credentials, responseFormat, { style, language, fetchFn = fetch } = {}) {
     if (!credentials?.apiKey) throw new Error("xiaomi-mimo API key required");
-    return synthesizeMiMo(text, model, credentials.apiKey, style, language);
+    return synthesizeMiMo(text, model, credentials.apiKey, style, language, fetchFn);
   },
 };
 
-export async function synthesizeMiMo(text, model, apiKey, style, language) {
+export async function synthesizeMiMo(text, model, apiKey, style, language, fetchFn = fetch) {
   const { modelId, voiceId } = parseModelVoice(model, DEFAULT_MODEL, DEFAULT_VOICE, [DEFAULT_MODEL]);
 
   // Language and style are soft instructions → prepend as a role:user message.
@@ -28,7 +28,7 @@ export async function synthesizeMiMo(text, model, apiKey, style, language) {
   const messages = [{ role: "assistant", content: text }];
   if (instructions.length) messages.unshift({ role: "user", content: instructions.join(" ") });
 
-  const res = await fetch("https://api.xiaomimimo.com/v1/chat/completions", {
+  const res = await fetchFn("https://api.xiaomimimo.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
