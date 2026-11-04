@@ -742,6 +742,7 @@ export default function ProviderDetailPage() {
             completed: index,
             passed,
             failed,
+            skipped,
             stopped: true,
           });
           break;
