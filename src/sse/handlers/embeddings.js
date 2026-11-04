@@ -127,6 +127,7 @@ export async function handleEmbeddings(request) {
       modelInfo: { provider, model },
       credentials: refreshedCredentials,
       log,
+      timeoutMs: settings.providerTimeoutMs || 100000,
       onCredentialsRefreshed: async (newCreds) => {
         await updateProviderCredentials(credentials.connectionId, {
           ...newCreds,
